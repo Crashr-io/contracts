@@ -28,7 +28,7 @@ pub fn does_output_cover_payout(
              // wants to trade any asset under the collection. We need to 
              // filter the specific assets so we can count any additional
              // assets under the collection that's been added to the output.
-             // @TODO: This needs to be optimized. For same policy_id, this assets
+             // @TODO: This needs to be optimized. For same policy_id, these assets
              // should only be fetched once.
              let named_assets =
                payout_value
