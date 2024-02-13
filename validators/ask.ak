@@ -1,7 +1,13 @@
 use aiken/builtin.{blake2b_256, serialise_data}
+use aiken/bytearray
 use aiken/list
-use aiken/transaction.{InlineDatum, NoDatum, ScriptContext, Spend, Transaction}
-use jpg/constants
+use aiken/transaction.{
+  InlineDatum, Input, NoDatum, Output, OutputReference, ScriptContext, Spend,
+  Transaction, TransactionId,
+}
+use aiken/transaction/credential
+use aiken/transaction/value
+use jpg/constants.{marketplace_addr}
 use jpg/types.{Payout, VerificationKeyHash}
 use jpg/utils.{check_marketplace_payout, check_payouts, find_payout_outputs}
 
@@ -63,7 +69,9 @@ validator {
         // If `can_have_discount` is `True` then we can
         // assume that jpg properly calculated the fee off chain.
         if can_have_discount {
-          check_payouts(payout_outputs, payouts, datum_tag) > 0
+          check_payouts(payout_outputs, payouts, datum_tag) == value.from_lovelace(
+            0,
+          )
         } else {
           // When there is a marketplace fee we can assume
           // it is the first of the `payout_outputs`.
@@ -73,7 +81,7 @@ validator {
 
           // This approximates the marketplace fee given only the payouts to a very high degree.
           // For a payouts in excess of 100k ada the error is less than 40000 lovelace.
-          let marketplace_fee = payouts_sum * 50 / 49 / 50
+          let marketplace_fee = value.lovelace_of(payouts_sum) * 50 / 49 / 50
 
           // Make sure that the marketplace output
           // is correct.
@@ -93,4 +101,190 @@ validator {
         list.has(extra_signatories, datum.owner)
     }
   }
+}
+
+/// Test swapping ada to NFT only
+/// with a single transaction.
+test check_ada_nft_single_trade() {
+  let seller_address = credential.from_verification_key(#"00000000000001")
+  let royalty_address = credential.from_verification_key(#"00000000000002")
+
+  // Assets
+  let nft_policy_1 = bytearray.from_string(@"nft_policy_1")
+  let nft_1 = bytearray.from_string(@"nft_1")
+
+  let spend_ref: OutputReference =
+    OutputReference {
+      transaction_id: TransactionId { hash: #"00" },
+      output_index: 0,
+    }
+
+  let spend_input =
+    Input {
+      output_reference: spend_ref,
+      output: Output {
+        address: seller_address,
+        value: value.from_lovelace(10_000) |> value.add(nft_policy_1, nft_1, 1),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    }
+
+  let payouts =
+    [
+      Payout { address: seller_address, amount: value.from_lovelace(30_000) },
+      Payout { address: royalty_address, amount: value.from_lovelace(10_000) },
+    ]
+
+  let datum = Datum { payouts, owner: #"00000000000001" }
+
+  let datum_tag =
+    OutputReference {
+      transaction_id: TransactionId { hash: #"00" },
+      output_index: 0,
+    }
+      |> serialise_data
+      |> blake2b_256
+      |> InlineDatum
+
+  let seller_output_value = value.from_lovelace(30_000)
+  let royalty_output_value = value.from_lovelace(10_000)
+  let marketplace_output_value = value.from_lovelace(816)
+
+  let seller_output =
+    Output {
+      address: seller_address,
+      value: seller_output_value,
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let royalty_output =
+    Output {
+      address: royalty_address,
+      value: royalty_output_value,
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let marketplace_output =
+    Output {
+      address: marketplace_addr(),
+      value: marketplace_output_value,
+      datum: datum_tag,
+      reference_script: None,
+    }
+
+  let transaction =
+    transaction.placeholder()
+      |> fn(tx) {
+           Transaction {
+             ..tx,
+             inputs: [spend_input],
+             outputs: [marketplace_output, seller_output, royalty_output],
+           }
+         }
+
+  let context = ScriptContext { purpose: Spend(spend_ref), transaction }
+  spend(datum, Buy { payout_outputs_offset: 0 }, context)
+}
+
+/// Test swapping multiple assets
+/// with a single transaction.
+test check_multiasset_to_multiasset_single_trade() {
+  let seller_address = credential.from_verification_key(#"00000000000001")
+  let royalty_address = credential.from_verification_key(#"00000000000002")
+
+  // Assets
+  let nft_policy_1 = bytearray.from_string(@"nft_policy_1")
+  let nft_1 = bytearray.from_string(@"nft_1")
+  let nft_policy_2 = bytearray.from_string(@"nft_policy_2")
+  let nft_2 = bytearray.from_string(@"nft_2")
+  let token_policy_1 = bytearray.from_string(@"token_policy_1")
+  let token_1 = bytearray.from_string(@"token_1")
+
+  let spend_ref: OutputReference =
+    OutputReference {
+      transaction_id: TransactionId { hash: #"00" },
+      output_index: 0,
+    }
+
+  let spend_input =
+    Input {
+      output_reference: spend_ref,
+      output: Output {
+        address: seller_address,
+        value: value.from_lovelace(30_000),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    }
+
+  let payouts =
+    [
+      Payout {
+        address: seller_address,
+        amount: value.from_lovelace(20_000)
+          |> value.add(nft_policy_1, nft_1, 1)
+          |> value.add(nft_policy_2, nft_2, 1)
+          |> value.add(token_policy_1, token_1, 5_000),
+      },
+      Payout { address: royalty_address, amount: value.from_lovelace(10_000) },
+    ]
+
+  let datum = Datum { payouts, owner: #"00000000000001" }
+
+  let datum_tag =
+    OutputReference {
+      transaction_id: TransactionId { hash: #"00" },
+      output_index: 0,
+    }
+      |> serialise_data
+      |> blake2b_256
+      |> InlineDatum
+
+  let seller_output_value =
+    value.from_lovelace(20_000)
+      |> value.add(nft_policy_1, nft_1, 1)
+      |> value.add(nft_policy_2, nft_2, 1)
+      |> value.add(token_policy_1, token_1, 5_000)
+  let royalty_output_value = value.from_lovelace(10_000)
+  let marketplace_output_value = value.from_lovelace(650)
+
+  let seller_output =
+    Output {
+      address: seller_address,
+      value: seller_output_value,
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let royalty_output =
+    Output {
+      address: royalty_address,
+      value: royalty_output_value,
+      datum: NoDatum,
+      reference_script: None,
+    }
+
+  let marketplace_output =
+    Output {
+      address: marketplace_addr(),
+      value: marketplace_output_value,
+      datum: datum_tag,
+      reference_script: None,
+    }
+
+  let transaction =
+    transaction.placeholder()
+      |> fn(tx) {
+           Transaction {
+             ..tx,
+             inputs: [spend_input],
+             outputs: [marketplace_output, seller_output, royalty_output],
+           }
+         }
+
+  let context = ScriptContext { purpose: Spend(spend_ref), transaction }
+  spend(datum, Buy { payout_outputs_offset: 0 }, context)
 }
