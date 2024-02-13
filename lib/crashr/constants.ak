@@ -1,5 +1,5 @@
 use aiken/transaction/credential.{Address, Inline, ScriptCredential}
-use jpg/types.{ScriptHash, VerificationKeyHash}
+use crashr/types.{ScriptHash, VerificationKeyHash}
 
 pub const marketplace_stake_sh: ScriptHash =
   #"2c967f4bd28944b06462e13c5e3f5d5fa6e03f8567569438cd833e6d"

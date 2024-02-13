@@ -6,8 +6,8 @@ use aiken/transaction.{
 }
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
 use aiken/transaction/value.{Value, ada_policy_id, to_dict}
-use jpg/constants.{marketplace_addr}
-use jpg/types.{Payout}
+use crashr/constants.{marketplace_addr}
+use crashr/types.{Payout}
 
 /// Checks whether the output covers the payout. 
 /// If any asset in the payout is not covered by the output,

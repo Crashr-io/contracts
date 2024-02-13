@@ -7,9 +7,9 @@ use aiken/transaction.{
 }
 use aiken/transaction/credential
 use aiken/transaction/value
-use jpg/constants.{marketplace_addr}
-use jpg/types.{Payout, VerificationKeyHash}
-use jpg/utils.{check_marketplace_payout, check_payouts, find_payout_outputs}
+use crashr/constants.{marketplace_addr}
+use crashr/types.{Payout, VerificationKeyHash}
+use crashr/utils.{check_marketplace_payout, check_payouts, find_payout_outputs}
 
 /// A listing requires a datum that has
 /// the owner's payment key and a list of payouts.
