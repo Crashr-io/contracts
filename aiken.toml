@@ -5,7 +5,7 @@ description = "Aiken contracts for project 'crashr-io/marketplace'"
 
 [repository]
 user = "crashr-io"
-project = "contracts"
+project = "marketplace"
 platform = "github"
 
 [[dependencies]]
