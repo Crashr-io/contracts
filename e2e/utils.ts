@@ -7,7 +7,7 @@ import {
   TxSigned,
 } from "https://deno.land/x/lucid@0.10.1/mod.ts";
 
-import blueprint from "../plutus.json" assert { type: "json" };
+import blueprint from "../plutus.json" with { type: "json" };
 
 const MAX_TX_EX_STEPS = 10000000000;
 const MAX_TX_EX_MEM = 14000000;
