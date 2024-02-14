@@ -13,6 +13,8 @@ import {
   TxSigned,
 } from "https://deno.land/x/lucid@0.10.1/mod.ts";
 
+import { Datum } from "./types.ts";
+
 import {
   printExecutionDetails,
   randomAssetId,
@@ -40,7 +42,7 @@ const marketplacePkh =
 const marketplaceStakePkh =
   "2c967f4bd28944b06462e13c5e3f5d5fa6e03f8567569438cd833e6d";
 
-export const BULK_PURCHASE_SIZE = 52;
+export const BULK_PURCHASE_SIZE = 24; // 54
 
 const validator = readValidator();
 console.log(validator);
@@ -56,6 +58,20 @@ export const bulkPurchaseAssets: Assets = new Array(BULK_PURCHASE_SIZE)
     acc[randomAssetId()] = 1n;
     return acc;
   }, {});
+
+export type Payout = {
+  address: Addr;
+  amount: Map<string, Map<string, bigint>>;
+};
+
+export type Addr = {
+  payment_credential: {
+    pkh: string;
+  };
+  stake_credential: {
+    pkh: string;
+  } | null;
+};
 
 export const marketplaceAddr = C.BaseAddress.new(
   0,
@@ -90,10 +106,12 @@ export async function test(
     .selectWalletFromPrivateKey(buyerPk)
     .wallet.address();
 
-  const { paymentCredential: sellerPaymentCredential } =
-    getAddressDetails(sellerAddr);
-  const { paymentCredential: royaltyPaymentCredential } =
-    getAddressDetails(royaltyAddr);
+  const { paymentCredential: sellerPaymentCredential } = getAddressDetails(
+    sellerAddr,
+  );
+  const { paymentCredential: royaltyPaymentCredential } = getAddressDetails(
+    royaltyAddr,
+  );
 
   const emulator = new Emulator(
     [
@@ -178,18 +196,23 @@ export async function testFail(
       .join("");
 
     const message = `
-  ${colors.bold(colors.brightMagenta(name))} - ${colors.green(
-    "passed",
-  )}\n${error}`;
+  ${colors.bold(colors.brightMagenta(name))} - ${
+      colors.green(
+        "passed",
+      )
+    }\n${error}`;
 
     console.log(message);
   }
 }
 
-export function makePayout(cred: string, amount: bigint) {
-  const address = new Constr(0, [new Constr(0, [cred]), new Constr(1, [])]);
+export function makePayout(owner: string, payouts: Payout[]) {
+  const datum: Datum = {
+    payouts,
+    owner,
+  };
 
-  return new Constr(0, [address, amount]);
+  return Data.to(datum, Datum);
 }
 
 export function buyRedeemer(payoutOutputsOffset: number): string {
