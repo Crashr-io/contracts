@@ -1,66 +1,85 @@
 use aiken/builtin.{tail_list}
-use aiken/dict
+use aiken/dict.{Dict}
 use aiken/list
+use aiken/math
 use aiken/transaction.{
   Datum, InlineDatum, NoDatum, Output, OutputReference, TransactionId,
 }
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
-use aiken/transaction/value.{Value, ada_policy_id, to_dict}
-use crashr/constants.{marketplace_addr}
+use aiken/transaction/value.{Value, ada_policy_id}
+use crashr/constants.{
+  marketplace_addr, min_payout, token_fee_lovelace, token_fee_threshold,
+}
 use crashr/types.{Payout}
 
 /// Checks whether the output covers the payout. 
 /// If any asset in the payout is not covered by the output,
 /// this function will return `False`.
-pub fn does_output_cover_payout(
-  payout_value: Value,
-  output_value: Value,
-) -> Bool {
-  let has_less_value =
-    payout_value
-      |> value.flatten
-      |> list.any(
-           fn(asset) {
-             let (policy_id, asset_name, amount) = asset
+pub fn does_output_cover_payout(payout_value: Value, output_value: Value) {
+  let payout_dict = payout_value |> value.to_dict()
+  let output_dict = output_value |> value.to_dict()
 
-             // There might be assets in the payouts that did not
-             // specify a specific asset name. This means the buyer/seller
-             // wants to trade any asset under the collection. We need to 
-             // filter the specific assets so we can count any additional
-             // assets under the collection that's been added to the output.
-             // @TODO: This needs to be optimized. For same policy_id, these assets
-             // should only be fetched once.
-             let named_assets =
-               payout_value
-                 |> value.tokens(policy_id)
-                 |> dict.keys()
-                 |> list.filter(fn(asset_name) { asset_name != "" })
+  // Compare values
+  payout_dict
+    |> dict.foldl(
+         True,
+         fn(policy_id, payout_assets, res) {
+           // Compare each asset under this policy_id
+           expect Some(output_assets) = output_dict |> dict.get(policy_id)
 
-             // The amount of asset the buyer included in the output
-             let output_amount =
-               if policy_id != ada_policy_id && asset_name == "" {
-                 // count all additional assets
-                 output_value
-                   |> value.tokens(policy_id)
-                   |> dict.filter(
-                        fn(k, _) {
-                          let included =
-                            named_assets |> list.any(fn(na) { k == na })
-                          !included
-                        },
-                      )
-                   |> dict.values()
-                   |> list.foldl(0, fn(a, b) { a + b })
-               } else {
-                 // count normally
-                 output_value |> value.quantity_of(policy_id, asset_name)
-               }
-             // Compare if the output amount is less than the specified payout amount
-             output_amount < amount
+           payout_assets
+             |> dict.foldl(
+                  True,
+                  fn(asset_name, payout_amount, _) {
+                    when output_assets |> dict.get(asset_name) is {
+                      // If the asset is found in the output, check if the amount is enough
+                      Some(output_amount) ->
+                        res && output_amount >= payout_amount
+                      // Otherwise check if there are additional assets that can cover
+                      // the payout amount if asset is not ada
+                      None ->
+                        if asset_name != "" || policy_id == ada_policy_id {
+                          res && False
+                        } else {
+                          // count all additional assets                            
+                          res && is_additional_assets_covered(
+                            payout_assets,
+                            output_assets,
+                            payout_amount,
+                          )
+                        }
+                    }
+                  },
+                )
+         },
+       )
+}
+
+/// Helper function for checking if additional assets
+/// are included in the output. This is for offers that
+/// did not specify a specific asset name.
+pub fn is_additional_assets_covered(
+  payout_assets: Dict<ByteArray, Int>,
+  output_assets: Dict<ByteArray, Int>,
+  amount_to_cover: Int,
+) {
+  let requested_assets =
+    payout_assets
+      |> dict.keys()
+      |> list.filter(fn(asset_name) { asset_name != "" })
+
+  let additional_tokens =
+    output_assets
+      |> dict.keys()
+      |> list.count(
+           fn(asset_name) {
+             let included =
+               requested_assets
+                 |> list.has(asset_name)
+             !included
            },
          )
-  // If there is any asset in the payout that the output does not cover, this will return `False`
-  !has_less_value
+  additional_tokens >= amount_to_cover
 }
 
 test check_does_output_cover_payout() {
@@ -92,22 +111,34 @@ test check_does_output_not_cover_payout_for_non_specific_assets() fail {
       |> value.merge(value.from_asset("111", "1", 1))
   let value2 =
     value.from_lovelace(1000)
-      |> value.merge(value.from_asset("111", "1", 1))
       |> value.merge(value.from_asset("111", "2", 1))
       |> value.merge(value.from_asset("111", "3", 1))
+      |> value.merge(value.from_asset("111", "4", 1))
+      |> value.merge(value.from_asset("111", "5", 1))
+      |> value.merge(value.from_asset("111", "6", 1))
+      |> value.merge(value.from_asset("111", "7", 1))
+      |> value.merge(value.from_asset("111", "8", 1))
   does_output_cover_payout(value1, value2)
 }
 
 test check_does_output_cover_payout_for_non_specific_assets_excess() {
   let value1 =
     value.from_lovelace(1000)
-      |> value.merge(value.from_asset("111", "", 3))
+      |> value.merge(value.from_asset("112", "4", 1))
+      |> value.merge(value.from_asset("113", "", 1))
   let value2 =
     value.from_lovelace(1000)
       |> value.merge(value.from_asset("111", "1", 1))
       |> value.merge(value.from_asset("111", "2", 1))
       |> value.merge(value.from_asset("111", "3", 1))
-      |> value.merge(value.from_asset("111", "4", 1))
+      |> value.merge(value.from_asset("111", "5", 1))
+      |> value.merge(value.from_asset("111", "6", 1))
+      |> value.merge(value.from_asset("111", "7", 1))
+      |> value.merge(value.from_asset("112", "4", 1))
+      |> value.merge(value.from_asset("113", "4", 1))
+      |> value.merge(value.from_asset("114", "4", 1))
+      |> value.merge(value.from_asset("116", "4", 1))
+      |> value.merge(value.from_asset("117", "4", 1))
   does_output_cover_payout(value1, value2)
 }
 
@@ -173,6 +204,51 @@ test skip_10_items_1() {
   skip_10_items([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) == [11]
 }
 
+/// Calculates multiasset fees for the marketplace.
+/// The fee is 2% of the total ada value + 1 ada per unique token.
+/// But if the token exceeds the threshold then the 1 ada token fee is removed
+/// and the fee is 2% of the token value is used as fee instead.
+pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
+  // 2% of the total ada value
+  let ada_fee = value.lovelace_of(total_payout) * 50 / 49 / 50
+
+  // Counts the unique tokens that didn't reach the threshold
+  let unique_tokens =
+    total_payout
+      |> value.without_lovelace()
+      |> value.flatten()
+      |> list.count(
+           fn(asset) {
+             let (_, _, amount) = asset
+             amount < token_fee_threshold
+           },
+         )
+
+  // 2% ada fee + 1 ada per unique token
+  let ada_token_fee = token_fee_lovelace * unique_tokens + ada_fee
+  let total_ada_fee = value.from_lovelace(ada_token_fee |> math.max(min_payout))
+
+  // 2% of the total token value for tokens that exceed the threshold
+  let total_token_fee =
+    total_payout
+      |> value.flatten()
+      |> list.foldl(
+           value.zero(),
+           fn(token, total) {
+             let (policy_id, asset_name, amount) = token
+             if amount >= token_fee_threshold {
+               let token_fee = amount * 50 / 49 / 50
+               total |> value.add(policy_id, asset_name, token_fee)
+             } else {
+               total
+             }
+           },
+         )
+
+  // Merge the fees
+  total_ada_fee |> value.merge(total_token_fee)
+}
+
 /// This function is used only if a discount
 /// is not allowed (tx not signed by jpg). The main difference
 /// from `check_payouts` is that we make sure the
@@ -182,31 +258,21 @@ test skip_10_items_1() {
 /// to compare to.
 pub fn check_marketplace_payout(
   output: Output,
-  marketplace_fee: Int,
+  marketplace_fee: Value,
   datum_tag: Datum,
 ) -> Bool {
   let Output { address: output_address, value, datum, .. } = output
-
   let datum_check = datum == datum_tag
 
   // Match hardcoded marketplace address
   let address_check = output_address == marketplace_addr()
 
-  expect [(policy, tokens)] =
-    value
-      |> to_dict
-      |> dict.to_list
-
-  expect [(_, quantity)] = dict.to_list(tokens)
-
-  let policy_check = policy == ada_policy_id
-
   // Output value quantity must equal the marketplace fee
   // this prevents people from not paying a fee by submitting
   // transactions not constructed by Jpg.
-  let quantity_check = quantity >= marketplace_fee
+  let quantity_check = marketplace_fee |> does_output_cover_payout(value)
 
-  datum_check && address_check && quantity_check && policy_check
+  datum_check? && address_check? && quantity_check?
 }
 
 /// Test that `check_marketplace_payout` returns `True` when
@@ -231,7 +297,7 @@ test check_marketplace_payout_valid_input() {
       reference_script: None,
     }
 
-  check_marketplace_payout(output, 2000000, datum_tag)
+  check_marketplace_payout(output, value.from_lovelace(2000000), datum_tag)
 }
 
 /// This test makes sure that the marketplace payout
@@ -262,7 +328,7 @@ test check_marketplace_payout_invalid_address() {
       reference_script: None,
     }
 
-  !check_marketplace_payout(output, 2000000, datum_tag)
+  !check_marketplace_payout(output, value.from_lovelace(2000000), datum_tag)
 }
 
 /// This test makes sure that the marketplace payout
@@ -288,7 +354,7 @@ test check_marketplace_payout_incorrect_amount() {
       reference_script: None,
     }
 
-  !check_marketplace_payout(output, 2000000, datum_tag)
+  !check_marketplace_payout(output, value.from_lovelace(2000000), datum_tag)
 }
 
 /// Check that payouts and payout outputs
@@ -306,7 +372,10 @@ pub fn check_payouts(
 
   let Output { address: output_address, value, datum, .. } = first_output
 
+  trace @"Comparing datum"
   expect datum == datum_tag
+
+  trace @"Fetching payouts"
   expect [payout, ..rest_payouts] = payouts
 
   let Payout { address: payout_address, amount } = payout
@@ -314,11 +383,16 @@ pub fn check_payouts(
   // The `Output` address must match
   // the address specified in the corresponding
   // payout from the datum.
+  trace @"Comparing addresses"
   expect payout_address == output_address
   let lovelace_amount = value |> value.lovelace_of()
+  let lovelace_payout_amount = amount |> value.lovelace_of()
   let is_payout_gte = amount |> does_output_cover_payout(value)
-  expect is_payout_gte && lovelace_amount > 0
 
+  trace @"Checking if payout is covered"
+  expect is_payout_gte && lovelace_amount > 0 && lovelace_payout_amount > 0
+
+  trace @"Checking if there are more outputs and payouts"
   let rest_payouts_amount =
     when rest_payouts is {
       // the base case
@@ -349,8 +423,9 @@ pub fn check_payouts_aux(outputs: List<Output>, payouts: List<Payout>) -> Value 
   expect payout_address == output_address
 
   let lovelace_amount = value |> value.lovelace_of()
+  let lovelace_payout_amount = amount |> value.lovelace_of()
   let is_payout_gte = amount |> does_output_cover_payout(value)
-  expect is_payout_gte && lovelace_amount > 0
+  expect is_payout_gte && lovelace_amount > 0 && lovelace_payout_amount > 0
 
   let rest_payouts_amount =
     when rest_payouts is {
