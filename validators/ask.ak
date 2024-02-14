@@ -9,7 +9,10 @@ use aiken/transaction/credential
 use aiken/transaction/value
 use crashr/constants.{marketplace_addr}
 use crashr/types.{Payout, VerificationKeyHash}
-use crashr/utils.{check_marketplace_payout, check_payouts, find_payout_outputs}
+use crashr/utils.{
+  calculate_marketplace_payout, check_marketplace_payout, check_payouts,
+  find_payout_outputs,
+}
 
 /// A listing requires a datum that has
 /// the owner's payment key and a list of payouts.
@@ -57,6 +60,8 @@ validator {
 
         let Datum { payouts, .. } = datum
 
+        trace @"Finding payout outputs."
+
         // Find the `outputs` that correspond to `payouts`.
         let payout_outputs = find_payout_outputs(outputs, payout_outputs_offset)
 
@@ -73,15 +78,17 @@ validator {
             0,
           )
         } else {
+          trace @"Checking payouts."
           // When there is a marketplace fee we can assume
           // it is the first of the `payout_outputs`.
           expect [marketplace_output, ..rest_outputs] = payout_outputs
 
+          trace @"Calculating payouts sum."
           let payouts_sum = check_payouts(rest_outputs, payouts, NoDatum)
-
+          trace @"Calculating marketplace fee."
           // This approximates the marketplace fee given only the payouts to a very high degree.
           // For a payouts in excess of 100k ada the error is less than 40000 lovelace.
-          let marketplace_fee = value.lovelace_of(payouts_sum) * 50 / 49 / 50
+          let marketplace_fee = calculate_marketplace_payout(payouts_sum)
 
           // Make sure that the marketplace output
           // is correct.
@@ -149,7 +156,7 @@ test check_ada_nft_single_trade() {
 
   let seller_output_value = value.from_lovelace(30_000)
   let royalty_output_value = value.from_lovelace(10_000)
-  let marketplace_output_value = value.from_lovelace(816)
+  let marketplace_output_value = value.from_lovelace(1_000_000)
 
   let seller_output =
     Output {
@@ -249,7 +256,7 @@ test check_multiasset_to_multiasset_single_trade() {
       |> value.add(nft_policy_2, nft_2, 1)
       |> value.add(token_policy_1, token_1, 5_000)
   let royalty_output_value = value.from_lovelace(10_000)
-  let marketplace_output_value = value.from_lovelace(650)
+  let marketplace_output_value = value.from_lovelace(3_000_612)
 
   let seller_output =
     Output {
