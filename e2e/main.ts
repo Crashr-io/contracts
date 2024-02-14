@@ -5,7 +5,6 @@ import {
   fromHex,
   toHex,
 } from "https://deno.land/x/lucid@0.10.1/mod.ts";
-
 import {
   BULK_PURCHASE_SIZE,
   bulkPurchaseAssets,
@@ -22,15 +21,47 @@ const price = 5000000n;
 test("Withdraw ask (best case scenario)", async (ctx) => {
   ctx.lucid.selectWalletFromPrivateKey(ctx.sellerPk);
 
-  const datum = Data.to(
-    new Constr(0, [
-      [
-        makePayout(ctx.sellerPaymentCredential?.hash!, price - 2000000n),
-        makePayout(ctx.royaltyPaymentCredential?.hash!, 1000000n),
-      ],
-      ctx.sellerPaymentCredential?.hash!,
-    ]),
+  const seller_output_value: Map<string, Map<string, bigint>> = new Map();
+  seller_output_value.set("", new Map());
+  seller_output_value.get("")?.set(
+    "",
+    price - 2000000n,
   );
+
+  const royalty_output_value: Map<string, Map<string, bigint>> = new Map();
+  royalty_output_value.set("", new Map());
+  royalty_output_value.get("")?.set(
+    "",
+    1000000n,
+  );
+
+  // const datum = Data.to(
+  //   new Constr(0, [
+  //     [
+  //       makePayout(ctx.sellerPaymentCredential?.hash!, price - 2000000n),
+  //       makePayout(ctx.royaltyPaymentCredential?.hash!, 1000000n),
+  //     ],
+  //     ctx.sellerPaymentCredential?.hash!,
+  //   ]),
+  // );
+
+  const datum = makePayout(ctx.sellerPaymentCredential?.hash!, [{
+    address: {
+      payment_credential: {
+        pkh: ctx.sellerPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: seller_output_value,
+  }, {
+    address: {
+      payment_credential: {
+        pkh: ctx.royaltyPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: royalty_output_value,
+  }]);
 
   // first tx -- list
   const tx = await ctx.lucid
@@ -66,15 +97,47 @@ test("Withdraw ask (best case scenario)", async (ctx) => {
 test("Purchase (best case scenario)", async (ctx) => {
   ctx.lucid.selectWalletFromPrivateKey(ctx.sellerPk);
 
-  const datum = Data.to(
-    new Constr(0, [
-      [
-        makePayout(ctx.sellerPaymentCredential?.hash!, price - 2000000n),
-        makePayout(ctx.royaltyPaymentCredential?.hash!, 1000000n),
-      ],
-      ctx.sellerPaymentCredential?.hash!,
-    ]),
+  const seller_output_value: Map<string, Map<string, bigint>> = new Map();
+  seller_output_value.set("", new Map());
+  seller_output_value.get("")?.set(
+    "",
+    price - 2000000n,
   );
+
+  const royalty_output_value: Map<string, Map<string, bigint>> = new Map();
+  royalty_output_value.set("", new Map());
+  royalty_output_value.get("")?.set(
+    "",
+    1000000n,
+  );
+
+  // const datum = Data.to(
+  //   new Constr(0, [
+  //     [
+  //       makePayout(ctx.sellerPaymentCredential?.hash!, price - 2000000n),
+  //       makePayout(ctx.royaltyPaymentCredential?.hash!, 1000000n),
+  //     ],
+  //     ctx.sellerPaymentCredential?.hash!,
+  //   ]),
+  // );
+
+  const datum = makePayout(ctx.sellerPaymentCredential?.hash!, [{
+    address: {
+      payment_credential: {
+        pkh: ctx.sellerPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: seller_output_value,
+  }, {
+    address: {
+      payment_credential: {
+        pkh: ctx.royaltyPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: royalty_output_value,
+  }]);
 
   // first tx -- list
   const tx = await ctx.lucid
@@ -141,15 +204,47 @@ test("Bulk purchase (worst case scenario)", async (ctx) => {
     // 100 ADA each
     const myPrice = 100000000n;
 
-    const datum = Data.to(
-      new Constr(0, [
-        [
-          makePayout(ctx.sellerPaymentCredential?.hash!, myPrice - 4000000n),
-          makePayout(ctx.royaltyPaymentCredential?.hash!, 2000000n),
-        ],
-        ctx.sellerPaymentCredential?.hash!,
-      ]),
+    const seller_output_value = new Map();
+    seller_output_value.set("", new Map());
+    seller_output_value.get("")?.set(
+      "",
+      myPrice - 4000000n,
     );
+
+    const royalty_output_value = new Map();
+    royalty_output_value.set("", new Map());
+    royalty_output_value.get("")?.set(
+      "",
+      2000000n,
+    );
+
+    // const datum = Data.to(
+    //   new Constr(0, [
+    //     [
+    //       makePayout(ctx.sellerPaymentCredential?.hash!, myPrice - 4000000n),
+    //       makePayout(ctx.royaltyPaymentCredential?.hash!, 2000000n),
+    //     ],
+    //     ctx.sellerPaymentCredential?.hash!,
+    //   ]),
+    // );
+
+    const datum = makePayout(ctx.sellerPaymentCredential?.hash!, [{
+      address: {
+        payment_credential: {
+          pkh: ctx.sellerPaymentCredential?.hash!,
+        },
+        stake_credential: null,
+      },
+      amount: seller_output_value,
+    }, {
+      address: {
+        payment_credential: {
+          pkh: ctx.royaltyPaymentCredential?.hash!,
+        },
+        stake_credential: null,
+      },
+      amount: royalty_output_value,
+    }]);
 
     bulkLockTx = bulkLockTx.payToContract(
       ctx.contractAddress,
@@ -220,18 +315,50 @@ test("Bulk purchase (worst case scenario)", async (ctx) => {
   return signed4;
 });
 
-testFail("Purchase (fee too low)", async (ctx) => {
+testFail("Purchase Fail (fee too low)", async (ctx) => {
   ctx.lucid.selectWalletFromPrivateKey(ctx.sellerPk);
 
-  const datum = Data.to(
-    new Constr(0, [
-      [
-        makePayout(ctx.sellerPaymentCredential?.hash!, 97_000_000n),
-        makePayout(ctx.royaltyPaymentCredential?.hash!, 1_000_000n),
-      ],
-      ctx.sellerPaymentCredential?.hash!,
-    ]),
+  // const datum = Data.to(
+  //   new Constr(0, [
+  //     [
+  //       makePayout(ctx.sellerPaymentCredential?.hash!, 97_000_000n),
+  //       makePayout(ctx.royaltyPaymentCredential?.hash!, 1_000_000n),
+  //     ],
+  //     ctx.sellerPaymentCredential?.hash!,
+  //   ]),
+  // );
+
+  const seller_output_value: Map<string, Map<string, bigint>> = new Map();
+  seller_output_value.set("", new Map());
+  seller_output_value.get("")?.set(
+    "",
+    97_000_000n,
   );
+
+  const royalty_output_value: Map<string, Map<string, bigint>> = new Map();
+  royalty_output_value.set("", new Map());
+  royalty_output_value.get("")?.set(
+    "",
+    1_000_000n,
+  );
+
+  const datum = makePayout(ctx.sellerPaymentCredential?.hash!, [{
+    address: {
+      payment_credential: {
+        pkh: ctx.sellerPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: seller_output_value,
+  }, {
+    address: {
+      payment_credential: {
+        pkh: ctx.royaltyPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: royalty_output_value,
+  }]);
 
   // first tx -- list
   const tx = await ctx.lucid
@@ -286,19 +413,70 @@ testFail("Purchase (fee too low)", async (ctx) => {
   return signed3;
 });
 
-testFail("Purchase (negative payouts)", async (ctx) => {
+testFail("Purchase Fail (negative payouts)", async (ctx) => {
   ctx.lucid.selectWalletFromPrivateKey(ctx.sellerPk);
 
-  const datum = Data.to(
-    new Constr(0, [
-      [
-        makePayout(ctx.sellerPaymentCredential?.hash!, 97_000_000n),
-        makePayout(ctx.royaltyPaymentCredential?.hash!, 1_000_000n),
-        makePayout(ctx.royaltyPaymentCredential?.hash!, -100_000_000n),
-      ],
-      ctx.sellerPaymentCredential?.hash!,
-    ]),
+  const seller_output_value: Map<string, Map<string, bigint>> = new Map();
+  seller_output_value.set("", new Map());
+  seller_output_value.get("")?.set(
+    "",
+    97_000_000n,
   );
+
+  const royalty_output_value: Map<string, Map<string, bigint>> = new Map();
+  royalty_output_value.set("", new Map());
+  royalty_output_value.get("")?.set(
+    "",
+    1_000_000n,
+  );
+
+  const negative_royalty_output_value: Map<string, Map<string, bigint>> =
+    new Map();
+  negative_royalty_output_value.set(
+    "",
+    new Map(),
+  );
+  negative_royalty_output_value.get("")?.set(
+    "",
+    -100_000_000n,
+  );
+
+  // const datum = Data.to(
+  //   new Constr(0, [
+  //     [
+  //       makePayout(ctx.sellerPaymentCredential?.hash!, 97_000_000n),
+  //       makePayout(ctx.royaltyPaymentCredential?.hash!, 1_000_000n),
+  //       makePayout(ctx.royaltyPaymentCredential?.hash!, -100_000_000n),
+  //     ],
+  //     ctx.sellerPaymentCredential?.hash!,
+  //   ]),
+  // );
+
+  const datum = makePayout(ctx.sellerPaymentCredential?.hash!, [{
+    address: {
+      payment_credential: {
+        pkh: ctx.sellerPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: seller_output_value,
+  }, {
+    address: {
+      payment_credential: {
+        pkh: ctx.royaltyPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: royalty_output_value,
+  }, {
+    address: {
+      payment_credential: {
+        pkh: ctx.royaltyPaymentCredential?.hash!,
+      },
+      stake_credential: null,
+    },
+    amount: negative_royalty_output_value,
+  }]);
 
   // first tx -- list
   const tx = await ctx.lucid
