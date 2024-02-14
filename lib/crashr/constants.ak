@@ -24,3 +24,7 @@ pub fn authorizers() -> List<VerificationKeyHash> {
 pub const marketplace_pct: Int = 20
 
 pub const min_payout: Int = 1000000
+
+pub const token_fee_lovelace: Int = 1000000
+
+pub const token_fee_threshold: Int = 100000000
