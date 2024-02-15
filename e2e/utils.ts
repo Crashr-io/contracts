@@ -87,3 +87,35 @@ export function randomAssetId() {
   crypto.getRandomValues(bytes);
   return toHex(bytes);
 }
+
+import { Blockfrost, Lucid } from "https://deno.land/x/lucid@0.10.7/mod.ts";
+import { NETWORK } from "./constants.ts";
+
+// Lucid Instance
+const lucid = await Lucid.new(
+  new Blockfrost(
+    "https://cardano-preview.blockfrost.io/api/v0",
+    "previewESX2VjfJ86iiDkgVdEiRtm8if4kJ2Vo0",
+  ),
+  NETWORK,
+);
+
+lucid.selectWalletFromPrivateKey(
+  await Deno.readTextFile("./me.sk"),
+);
+
+const buyer_lucid = await Lucid.new(
+  new Blockfrost(
+    "https://cardano-preview.blockfrost.io/api/v0",
+    "previewESX2VjfJ86iiDkgVdEiRtm8if4kJ2Vo0",
+  ),
+  NETWORK,
+);
+
+buyer_lucid.selectWalletFromPrivateKey(
+  await Deno.readTextFile("./you.sk"),
+);
+
+// Spending Validator
+
+export { buyer_lucid, cbor, lucid };
