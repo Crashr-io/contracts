@@ -8,7 +8,8 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
 use aiken/transaction/value.{Value, ada_policy_id}
 use crashr/constants.{
-  marketplace_addr, min_payout, token_fee_lovelace, token_fee_threshold,
+  ada_fee_per_nft, marketplace_addr, marketplace_pct, min_payout,
+  token_fee_threshold,
 }
 use crashr/types.{Payout}
 
@@ -210,7 +211,8 @@ test skip_10_items_1() {
 /// and the fee is 2% of the token value is used as fee instead.
 pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
   // 2% of the total ada value
-  let ada_fee = value.lovelace_of(total_payout) * 50 / 49 / 50
+  let ada_fee =
+    ( value.lovelace_of(total_payout) * marketplace_pct + 50 ) / 1000
 
   // Counts the unique tokens that didn't reach the threshold
   let unique_tokens =
@@ -225,7 +227,7 @@ pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
          )
 
   // 2% ada fee + 1 ada per unique token
-  let ada_token_fee = token_fee_lovelace * unique_tokens + ada_fee
+  let ada_token_fee = ada_fee_per_nft * unique_tokens + ada_fee
   let total_ada_fee = value.from_lovelace(ada_token_fee |> math.max(min_payout))
 
   // 2% of the total token value for tokens that exceed the threshold
@@ -236,8 +238,8 @@ pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
            value.zero(),
            fn(token, total) {
              let (policy_id, asset_name, amount) = token
-             if amount >= token_fee_threshold {
-               let token_fee = amount * 50 / 49 / 50
+             if amount >= token_fee_threshold && policy_id != ada_policy_id {
+               let token_fee = ( amount * marketplace_pct + 50 ) / 1000
                total |> value.add(policy_id, asset_name, token_fee)
              } else {
                total
@@ -328,7 +330,7 @@ test check_marketplace_payout_invalid_address() {
       reference_script: None,
     }
 
-  !check_marketplace_payout(output, value.from_lovelace(2000000), datum_tag)
+  !check_marketplace_payout(output, value.from_lovelace(2000000), datum_tag)?
 }
 
 /// This test makes sure that the marketplace payout
@@ -372,47 +374,8 @@ pub fn check_payouts(
 
   let Output { address: output_address, value, datum, .. } = first_output
 
-  trace @"Comparing datum"
   expect datum == datum_tag
 
-  trace @"Fetching payouts"
-  expect [payout, ..rest_payouts] = payouts
-
-  let Payout { address: payout_address, amount } = payout
-
-  // The `Output` address must match
-  // the address specified in the corresponding
-  // payout from the datum.
-  trace @"Comparing addresses"
-  expect payout_address == output_address
-  let lovelace_amount = value |> value.lovelace_of()
-  let lovelace_payout_amount = amount |> value.lovelace_of()
-  let is_payout_gte = amount |> does_output_cover_payout(value)
-
-  trace @"Checking if payout is covered"
-  expect is_payout_gte && lovelace_amount > 0 && lovelace_payout_amount > 0
-
-  trace @"Checking if there are more outputs and payouts"
-  let rest_payouts_amount =
-    when rest_payouts is {
-      // the base case
-      [] ->
-        // if rest is empty we are done
-        value.zero()
-      _ ->
-        // continue with remaining outputs and payouts
-        check_payouts_aux(rest_outputs, rest_payouts)
-    }
-
-  amount |> value.merge(rest_payouts_amount)
-}
-
-pub fn check_payouts_aux(outputs: List<Output>, payouts: List<Payout>) -> Value {
-  expect [first_output, ..rest_outputs] = outputs
-
-  let Output { address: output_address, value, datum, .. } = first_output
-
-  expect datum == NoDatum
   expect [payout, ..rest_payouts] = payouts
 
   let Payout { address: payout_address, amount } = payout
@@ -424,8 +387,9 @@ pub fn check_payouts_aux(outputs: List<Output>, payouts: List<Payout>) -> Value 
 
   let lovelace_amount = value |> value.lovelace_of()
   let lovelace_payout_amount = amount |> value.lovelace_of()
-  let is_payout_gte = amount |> does_output_cover_payout(value)
-  expect is_payout_gte && lovelace_amount > 0 && lovelace_payout_amount > 0
+  let is_payout_covered = amount |> does_output_cover_payout(value)
+
+  expect is_payout_covered && lovelace_amount > 0 && lovelace_payout_amount > 0
 
   let rest_payouts_amount =
     when rest_payouts is {
@@ -435,7 +399,7 @@ pub fn check_payouts_aux(outputs: List<Output>, payouts: List<Payout>) -> Value 
         value.zero()
       _ ->
         // continue with remaining outputs and payouts
-        check_payouts_aux(rest_outputs, rest_payouts)
+        check_payouts(rest_outputs, rest_payouts, NoDatum)
     }
 
   amount |> value.merge(rest_payouts_amount)
