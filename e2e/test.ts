@@ -178,6 +178,110 @@ export async function test(
   printExecutionDetails(txSigned, name);
 }
 
+export async function testMultiAsset(
+  name: string,
+  offerAssets: Assets,
+  wantAssets: Assets,
+  fn: (ctx: TestContext) => Promise<TxSigned>,
+) {
+  const sellerPk = generatePrivateKey();
+  const refPk = generatePrivateKey();
+  const buyerPk = generatePrivateKey();
+  const royaltyPk = generatePrivateKey();
+
+  const l = await Lucid.new(undefined, "Preprod");
+
+  const sellerAddr = await l
+    .selectWalletFromPrivateKey(sellerPk)
+    .wallet.address();
+
+  const refAddr = await l.selectWalletFromPrivateKey(refPk).wallet.address();
+
+  const royaltyAddr = await l
+    .selectWalletFromPrivateKey(royaltyPk)
+    .wallet.address();
+
+  const buyerAddr = await l
+    .selectWalletFromPrivateKey(buyerPk)
+    .wallet.address();
+
+  const { paymentCredential: sellerPaymentCredential } = getAddressDetails(
+    sellerAddr,
+  );
+  const { paymentCredential: royaltyPaymentCredential } = getAddressDetails(
+    royaltyAddr,
+  );
+
+  const emulator = new Emulator(
+    [
+      {
+        address: sellerAddr,
+        assets: {
+          lovelace: BigInt(1e14),
+          ...singleAsset,
+          ...offerAssets,
+          ...bulkPurchaseAssets,
+        },
+      },
+      {
+        address: buyerAddr,
+        assets: {
+          lovelace: BigInt(1e14),
+          ...wantAssets,
+          ...bulkPurchaseAssets,
+        },
+      },
+      {
+        address: refAddr,
+        assets: { lovelace: BigInt(1e14) },
+      },
+    ],
+    {
+      ...PROTOCOL_PARAMETERS_DEFAULT,
+    },
+  );
+
+  const lucid = await Lucid.new(emulator);
+
+  const contractAddress = lucid.utils.validatorToAddress(validator);
+
+  lucid.selectWalletFromPrivateKey(sellerPk);
+
+  const txRef = await lucid
+    .newTx()
+    .payToAddressWithData(
+      refAddr,
+      { scriptRef: validator },
+      {
+        lovelace: 100000000n,
+      },
+    )
+    .complete();
+
+  const signedRef = await txRef.sign().complete();
+
+  await signedRef.submit();
+
+  emulator.awaitBlock(16);
+
+  const txSigned = await fn({
+    contractAddress,
+    lucid,
+    emulator,
+    sellerPaymentCredential,
+    royaltyPaymentCredential,
+    sellerAddr,
+    sellerPk,
+    buyerAddr,
+    buyerPk,
+    royaltyAddr,
+    royaltyPk,
+    refAddr,
+  });
+
+  printExecutionDetails(txSigned, name);
+}
+
 export async function testFail(
   name: string,
   fn: (ctx: TestContext) => Promise<TxSigned>,
