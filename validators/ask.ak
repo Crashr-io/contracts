@@ -60,44 +60,20 @@ validator {
 
         let Datum { payouts, .. } = datum
 
-        trace @"Finding payout outputs."
-
         // Find the `outputs` that correspond to `payouts`.
         let payout_outputs = find_payout_outputs(outputs, payout_outputs_offset)
 
-        // We can ignore the fee check
-        // if any of the authorizers have signed the tx.
-        let can_have_discount =
-          constants.authorizers()
-            |> list.any(fn(authorizer) { list.has(extra_signatories, authorizer) })
+        expect [marketplace_output, ..rest_outputs] = payout_outputs
 
-        // If `can_have_discount` is `True` then we can
-        // assume that jpg properly calculated the fee off chain.
-        if can_have_discount {
-          check_payouts(payout_outputs, payouts, datum_tag) == value.from_lovelace(
-            0,
-          )
-        } else {
-          trace @"Checking payouts."
-          // When there is a marketplace fee we can assume
-          // it is the first of the `payout_outputs`.
-          expect [marketplace_output, ..rest_outputs] = payout_outputs
+        // Calculate total payout
+        let payouts_sum = check_payouts(rest_outputs, payouts, NoDatum)
 
-          trace @"Calculating payouts sum."
-          let payouts_sum = check_payouts(rest_outputs, payouts, NoDatum)
-          trace @"Calculating marketplace fee."
-          // This approximates the marketplace fee given only the payouts to a very high degree.
-          // For a payouts in excess of 100k ada the error is less than 40000 lovelace.
-          let marketplace_fee = calculate_marketplace_payout(payouts_sum)
+        // Calculate the marketplace fee
+        let marketplace_fee = calculate_marketplace_payout(payouts_sum)
 
-          // Make sure that the marketplace output
-          // is correct.
-          check_marketplace_payout(
-            marketplace_output,
-            marketplace_fee,
-            datum_tag,
-          )
-        }
+        // Make sure that the marketplace output
+        // is correct.
+        check_marketplace_payout(marketplace_output, marketplace_fee, datum_tag)
       }
 
       // There's not much to do here. An asset
@@ -112,7 +88,7 @@ validator {
 
 /// Test swapping ada to NFT only
 /// with a single transaction.
-test check_ada_nft_single_trade() {
+test check_asset_to_ada_trade() {
   let seller_address = credential.from_verification_key(#"00000000000001")
   let royalty_address = credential.from_verification_key(#"00000000000002")
 
@@ -198,7 +174,7 @@ test check_ada_nft_single_trade() {
 
 /// Test swapping multiple assets
 /// with a single transaction.
-test check_multiasset_to_multiasset_single_trade() {
+test check_single_asset_to_multiasset_trade() {
   let seller_address = credential.from_verification_key(#"00000000000001")
   let royalty_address = credential.from_verification_key(#"00000000000002")
 
@@ -214,17 +190,6 @@ test check_multiasset_to_multiasset_single_trade() {
     OutputReference {
       transaction_id: TransactionId { hash: #"00" },
       output_index: 0,
-    }
-
-  let spend_input =
-    Input {
-      output_reference: spend_ref,
-      output: Output {
-        address: seller_address,
-        value: value.from_lovelace(30_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
     }
 
   let payouts =
@@ -256,7 +221,9 @@ test check_multiasset_to_multiasset_single_trade() {
       |> value.add(nft_policy_2, nft_2, 1)
       |> value.add(token_policy_1, token_1, 5_000)
   let royalty_output_value = value.from_lovelace(10_000)
-  let marketplace_output_value = value.from_lovelace(3_000_612)
+  let marketplace_output_value =
+    value.from_lovelace(2_000_600)
+      |> value.merge(value.from_asset(token_policy_1, token_1, 102))
 
   let seller_output =
     Output {
@@ -287,7 +254,6 @@ test check_multiasset_to_multiasset_single_trade() {
       |> fn(tx) {
            Transaction {
              ..tx,
-             inputs: [spend_input],
              outputs: [marketplace_output, seller_output, royalty_output],
            }
          }
