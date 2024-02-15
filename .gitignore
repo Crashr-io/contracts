@@ -8,3 +8,6 @@ docs/
 
 node_modules/
 .env
+
+*.addr
+*.sk
