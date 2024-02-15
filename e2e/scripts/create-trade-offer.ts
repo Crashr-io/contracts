@@ -4,20 +4,12 @@ import {
   toHex,
 } from "https://deno.land/x/lucid@0.10.1/mod.ts";
 import { makePayout } from "../test.ts";
-import { buyer_lucid, lucid, readValidator } from "../utils.ts";
+import { lucid, readValidator } from "../utils.ts";
 
 const validator = readValidator();
-
-const buyerAddress = await buyer_lucid.wallet.address();
-
 const seller_pkh = lucid.utils.getAddressDetails(
   await lucid.wallet.address(),
 ).paymentCredential?.hash;
-
-const buyer_utxos = await lucid.provider.getUtxos(buyerAddress);
-const seller_utxos = await lucid.wallet.getUtxos();
-
-console.log({ buyer_utxos, seller_utxos });
 
 const seller_want_assets: Assets = {
   "065270479316f1d92e00f7f9f095ebeaac9d009c878dc35ce36d3404433374": 1n,
@@ -69,8 +61,13 @@ const seller_offer_assets: Assets = {
 };
 
 const seller_payout_value: Map<string, Map<string, bigint>> = new Map();
-
+seller_payout_value.set("", new Map());
+seller_payout_value.get("")?.set(
+  "",
+  2000000n,
+);
 const seller_payout_ma = assetsToValue(seller_want_assets).multiasset();
+
 if (seller_payout_ma) {
   const multiAssets = seller_payout_ma.keys();
   for (let j = 0; j < multiAssets.len(); j++) {
@@ -90,12 +87,6 @@ if (seller_payout_ma) {
     }
   }
 }
-
-seller_payout_value.set("", new Map());
-seller_payout_value.get("")?.set(
-  "",
-  2000000n,
-);
 
 const royalty_output_assets: Map<string, Map<string, bigint>> = new Map();
 royalty_output_assets.set("", new Map());
