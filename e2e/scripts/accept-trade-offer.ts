@@ -12,19 +12,8 @@ import { buyer_lucid, lucid, readValidator } from "../utils.ts";
 const validator = readValidator();
 const validator_address = buyer_lucid.utils.validatorToAddress(validator);
 const seller_address = await lucid.wallet.address();
-
-// const buyer_pkh = buyer_lucid.utils.getAddressDetails(
-//   await buyer_lucid.wallet.address(),
-// ).paymentCredential?.hash;
-
 const validator_utxos = await buyer_lucid.provider.getUtxos(validator_address);
-
-console.log({ validator_utxos });
-
 const datum = Data.from(validator_utxos[1].datum!, Datum) as Datum;
-
-console.log({ datum });
-
 const seller_output_value: { [key: string]: bigint } = {};
 
 for (const policy of datum.payouts[0].amount.entries()) {
@@ -41,8 +30,6 @@ for (const policy of datum.payouts[0].amount.entries()) {
     seller_output_value[unit] = amount;
   }
 }
-
-console.log({ seller_output_value });
 
 const datumTag = Data.to(toHex(C.hash_blake2b256(fromHex(Data.to(
   new Constr(0, [new Constr(0, [validator_utxos[1].txHash]), BigInt(0)]),
@@ -72,9 +59,7 @@ const tx = await buyer_lucid
   .complete();
 
 const signedTx = await tx.sign().complete();
-
 const txHash = await signedTx.submit();
-
 await buyer_lucid.awaitTx(txHash);
 
 console.log(`$Trade offer executed at:
