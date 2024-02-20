@@ -21,6 +21,9 @@ import { randomAssetId } from "./utils.ts";
 
 const price = 5000000n;
 
+const zero_value = new Map();
+zero_value.set("", new Map());
+
 test("Withdraw ask (best case scenario)", async (ctx) => {
   ctx.lucid.selectWalletFromPrivateKey(ctx.sellerPk);
 
@@ -38,16 +41,6 @@ test("Withdraw ask (best case scenario)", async (ctx) => {
     1000000n,
   );
 
-  // const datum = Data.to(
-  //   new Constr(0, [
-  //     [
-  //       makePayout(ctx.sellerPaymentCredential?.hash!, price - 2000000n),
-  //       makePayout(ctx.royaltyPaymentCredential?.hash!, 1000000n),
-  //     ],
-  //     ctx.sellerPaymentCredential?.hash!,
-  //   ]),
-  // );
-
   const datum = makePayout(ctx.sellerPaymentCredential?.hash!, [{
     address: {
       payment_credential: {
@@ -55,7 +48,7 @@ test("Withdraw ask (best case scenario)", async (ctx) => {
       },
       stake_credential: null,
     },
-    amount: seller_output_value,
+    amount: zero_value,
   }, {
     address: {
       payment_credential: {
@@ -63,7 +56,7 @@ test("Withdraw ask (best case scenario)", async (ctx) => {
       },
       stake_credential: null,
     },
-    amount: royalty_output_value,
+    amount: zero_value,
   }]);
 
   // first tx -- list
@@ -210,17 +203,6 @@ test("Bulk purchase (worst case scenario)", async (ctx) => {
       "",
       2000000n,
     );
-
-    // const datum = Data.to(
-    //   new Constr(0, [
-    //     [
-    //       makePayout(ctx.sellerPaymentCredential?.hash!, myPrice - 4000000n),
-    //       makePayout(ctx.royaltyPaymentCredential?.hash!, 2000000n),
-    //     ],
-    //     ctx.sellerPaymentCredential?.hash!,
-    //   ]),
-    // );
-
     const datum = makePayout(ctx.sellerPaymentCredential?.hash!, [{
       address: {
         payment_credential: {
@@ -310,16 +292,6 @@ test("Bulk purchase (worst case scenario)", async (ctx) => {
 
 testFail("Purchase Fail (fee too low)", async (ctx) => {
   ctx.lucid.selectWalletFromPrivateKey(ctx.sellerPk);
-
-  // const datum = Data.to(
-  //   new Constr(0, [
-  //     [
-  //       makePayout(ctx.sellerPaymentCredential?.hash!, 97_000_000n),
-  //       makePayout(ctx.royaltyPaymentCredential?.hash!, 1_000_000n),
-  //     ],
-  //     ctx.sellerPaymentCredential?.hash!,
-  //   ]),
-  // );
 
   const seller_output_value: Map<string, Map<string, bigint>> = new Map();
   seller_output_value.set("", new Map());
@@ -609,8 +581,6 @@ const seller_offer_assets = new Array(94)
     acc[randomAssetId()] = 1n;
     return acc;
   }, {});
-
-console.log({ seller_output_assets, seller_offer_assets });
 
 testMultiAsset(
   "Trade Multiple Assets for Multiple Assets",
