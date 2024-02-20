@@ -219,10 +219,17 @@ pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
     total_payout
       |> value.without_lovelace()
       |> value.flatten()
-      |> list.count(
-           fn(asset) {
-             let (_, _, amount) = asset
-             amount < token_fee_threshold
+      |> list.foldl(
+           0,
+           fn(asset, total) {
+             let (_, asset_name, amount) = asset
+             if asset_name != "" && amount < token_fee_threshold {
+               total + 1
+             } else if asset_name == "" {
+               total + amount
+             } else {
+               total + 0
+             }
            },
          )
 
@@ -233,12 +240,13 @@ pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
   // 2% of the total token value for tokens that exceed the threshold
   let total_token_fee =
     total_payout
+      |> value.without_lovelace()
       |> value.flatten()
       |> list.foldl(
            value.zero(),
            fn(token, total) {
              let (policy_id, asset_name, amount) = token
-             if amount >= token_fee_threshold && policy_id != ada_policy_id {
+             if amount >= token_fee_threshold {
                let token_fee = ( amount * marketplace_pct + 50 ) / 1000
                total |> value.add(policy_id, asset_name, token_fee)
              } else {
@@ -389,7 +397,7 @@ pub fn check_payouts(
   let lovelace_payout_amount = amount |> value.lovelace_of()
   let is_payout_covered = amount |> does_output_cover_payout(value)
 
-  expect is_payout_covered && lovelace_amount > 0 && lovelace_payout_amount > 0
+  expect is_payout_covered && lovelace_amount > 0 && lovelace_payout_amount >= 0
 
   let rest_payouts_amount =
     when rest_payouts is {
