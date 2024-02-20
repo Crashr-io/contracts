@@ -1,5 +1,8 @@
 {
   "version": "3",
+  "redirects": {
+    "https://deno.land/x/dotenv/load.ts": "https://deno.land/x/dotenv@v3.2.2/load.ts"
+  },
   "remote": {
     "https://deno.land/std@0.100.0/encoding/hex.ts": "f952e0727bddb3b2fd2e6889d104eacbd62e92091f540ebd6459317a61932d9b",
     "https://deno.land/std@0.148.0/bytes/equals.ts": "3c3558c3ae85526f84510aa2b48ab2ad7bdd899e2e0f5b7a8ffc85acb3a6043a",
@@ -14,6 +17,9 @@
     "https://deno.land/x/cbor@v1.4.1/encode.js": "fc5068300e225c779f6a5fbf9bbaf74cb9b432f86e832c4f5db484767421bdae",
     "https://deno.land/x/cbor@v1.4.1/index.js": "4119830fb6d106ec2a369442042803d57cff13cbc76f6aefc2f871aeb6e6bef5",
     "https://deno.land/x/cbor@v1.4.1/iterators.js": "744e0469fe37c33bab3787608ced2f2cda014cb9352b3adbd949a2701f043aea",
+    "https://deno.land/x/dotenv@v3.2.2/load.ts": "cbd76a0aee01aad8d09222afaa1dd04b84d9d3e44637503b01bf77a91df9e041",
+    "https://deno.land/x/dotenv@v3.2.2/mod.ts": "077b48773de9205266a0b44c3c3a3c3083449ed64bb0b6cc461b95720678d38e",
+    "https://deno.land/x/dotenv@v3.2.2/util.ts": "693730877b13f8ead2b79b2aa31e2a0652862f7dc0c5f6d2f313f4d39c7b7670",
     "https://deno.land/x/lucid@0.10.1/mod.ts": "9473507398048cb24dbb37b3a220777106c69c28d573898648deb2bb84a7e131",
     "https://deno.land/x/lucid@0.10.1/package.json": "52809408775d3d08fd59ef6affaaecdc0806aaccd5702672de77187d46d3c3cd",
     "https://deno.land/x/lucid@0.10.1/src/core/core.ts": "5b2f6d4746933a425bfcb134a55b84c946bc2ddd98b795aa9189f345778b113c",
