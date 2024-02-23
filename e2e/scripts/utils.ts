@@ -327,12 +327,67 @@ export async function createOffer(
   console.log(colors.magenta("Awaiting confirmation\n\n"));
   await wallet.provider.awaitTx(txHash);
 
+  await (new Promise((resolve) => setTimeout(resolve, 40000)));
+
   return txHash;
+}
+
+export function createOfferTx(
+  seller_pkh: string,
+  offer_amount: Map<string, Map<string, bigint>>,
+  want_amount: Map<string, Map<string, bigint>>,
+  minting_policy: MintingPolicy,
+  wallet: Lucid,
+): Tx {
+  const validator_address = wallet.utils.validatorToAddress(validator);
+  const offer_assets = mappedValueToAssets(offer_amount);
+  const payouts: Payout[] = [];
+
+  // seller_payout
+  payouts.push({
+    address: {
+      payment_credential: {
+        pkh: seller_pkh!,
+      },
+      stake_credential: null,
+    },
+    amount: want_amount,
+  });
+
+  const datum: Datum = {
+    payouts,
+    owner: seller_pkh!,
+  };
+
+  const offer_without_lovelace = mappedValueWithoutLovelace(offer_amount);
+  const offer_without_lovelace_assets = mappedValueToAssets(
+    offer_without_lovelace,
+  );
+
+  // Create the offer transaction
+  console.log(colors.magenta("Building the offer transaction"));
+
+  const offer_tx = wallet.newTx()
+    .payToContract(
+      validator_address,
+      { inline: Data.to(datum, Datum) },
+      offer_assets,
+    );
+
+  // Check if there are any assets to mint
+  if (offer_without_lovelace.size > 0) {
+    offer_tx
+      .mintAssets(offer_without_lovelace_assets)
+      .attachMintingPolicy(minting_policy);
+  }
+
+  // Complete the offer transaction
+
+  return offer_tx;
 }
 
 export async function acceptOffer(
   offer_out_ref: OutRef,
-  want_amount: Map<string, Map<string, bigint>>,
   minting_policy: MintingPolicy,
   wallet: Lucid,
 ): Promise<string> {
@@ -344,6 +399,7 @@ export async function acceptOffer(
 
   // Get the offer datum
   const offer_datum = Data.from(offer_utxo[0].datum!, Datum) as Datum;
+  const want_amount = offer_datum.payouts[0].amount;
   const datum_tag = Data.to(toHex(C.hash_blake2b256(fromHex(Data.to(
     new Constr(0, [
       new Constr(0, [offer_out_ref.txHash]),
@@ -393,4 +449,148 @@ export async function acceptOffer(
   await wallet.provider.awaitTx(accept_tx_hash);
 
   return accept_tx_hash;
+}
+
+export async function batchAcceptOffer(
+  offer_out_refs: OutRef[],
+  minting_policy: MintingPolicy,
+  wallet: Lucid,
+): Promise<string> {
+  // Create the accept offer transaction
+  console.log(colors.magenta("Building the accept offer transaction"));
+  const offer_utxos = await wallet.provider.getUtxosByOutRef(
+    offer_out_refs,
+  );
+
+  let accept_tx = wallet.newTx()
+    .attachSpendingValidator(validator);
+
+  let assets_to_mint: {
+    [key: string]: Amount;
+  } = {};
+
+  let offset = 0;
+  for (const offer_utxo of offer_utxos) {
+    // Get the offer datum
+    const offer_datum = Data.from(offer_utxo.datum!, Datum) as Datum;
+    const want_amount = offer_datum.payouts[0].amount;
+    const datum_tag = Data.to(toHex(C.hash_blake2b256(fromHex(Data.to(
+      new Constr(0, [
+        new Constr(0, [offer_utxo.txHash]),
+        BigInt(offer_utxo.outputIndex),
+      ]),
+    )))));
+
+    const want_assets_without_lovelace = mappedValueWithoutLovelace(
+      want_amount,
+    );
+
+    const mint_assets = mappedValueToAssets(want_assets_without_lovelace);
+    assets_to_mint = { ...assets_to_mint, ...mint_assets };
+
+    accept_tx = addMarketplacePayoutOutput(
+      mergePayouts(offer_datum.payouts),
+      marketplaceAddr,
+      datum_tag,
+      accept_tx,
+    );
+
+    accept_tx = addPayoutOutputs(offer_datum.payouts, mint_assets, accept_tx);
+    accept_tx.collectFrom([offer_utxo], buyRedeemer(offset));
+    offset += offer_datum.payouts.length + 1;
+  }
+
+  // Check if there are any assets to mint
+  if (Object.keys(assets_to_mint).length > 0) {
+    accept_tx
+      .mintAssets(assets_to_mint)
+      .attachMintingPolicy(minting_policy);
+  }
+
+  // Complete the accept offer transaction
+  const complete_accept_tx = await accept_tx.complete();
+  const accept_tx_signed = await complete_accept_tx.sign().complete();
+
+  console.log(colors.magenta("Submitting the accept offer transaction"));
+  const accept_tx_hash = await accept_tx_signed.submit();
+
+  console.log(
+    colors.magenta(
+      `Accept offer transaction submitted at: ${colors.blue(accept_tx_hash)}`,
+    ),
+  );
+
+  console.log(
+    colors.magenta("Awaiting confirmation\n\n"),
+  );
+  await wallet.provider.awaitTx(accept_tx_hash);
+
+  return accept_tx_hash;
+}
+
+export async function cancelOffer(
+  out_ref: OutRef,
+  seller_wallet: string,
+  wallet: Lucid,
+) {
+  const utxo = await wallet.provider.getUtxosByOutRef([out_ref]);
+
+  const cancel_tx = await wallet.newTx()
+    .collectFrom(utxo, Data.to(new Constr(1, [])))
+    .attachSpendingValidator(validator)
+    .addSigner(seller_wallet)
+    .complete();
+
+  const cancel_tx_signed = await cancel_tx.sign().complete();
+  const cancel_tx_hash = await cancel_tx_signed.submit();
+
+  console.log(
+    colors.magenta(
+      `Cancel offer transaction submitted at: ${colors.blue(cancel_tx_hash)}`,
+    ),
+  );
+
+  console.log(
+    colors.magenta("Awaiting confirmation\n\n"),
+  );
+  await wallet.provider.awaitTx(cancel_tx_hash);
+
+  return cancel_tx_hash;
+}
+
+export async function updateOffer(
+  seller_pkh: string,
+  offer_amount: Map<string, Map<string, bigint>>,
+  want_amount: Map<string, Map<string, bigint>>,
+  minting_policy: MintingPolicy,
+  out_ref: OutRef,
+  funding_wallet: Lucid,
+  seller_wallet: Lucid,
+) {
+  const utxo = await funding_wallet.provider.getUtxosByOutRef([out_ref]);
+  const new_offer_tx = createOfferTx(
+    seller_pkh,
+    offer_amount,
+    want_amount,
+    minting_policy,
+    seller_wallet,
+  );
+
+  // Cancel
+  const completed_tx = await new_offer_tx
+    .collectFrom(utxo, Data.to(new Constr(1, [])))
+    .attachSpendingValidator(validator)
+    .addSignerKey(seller_pkh)
+    .complete();
+
+  const cancel_tx_signed = await completed_tx.sign().complete();
+
+  console.log(colors.magenta("Submitting the update offer transaction"));
+  const txHash = await cancel_tx_signed.submit();
+
+  console.log(
+    colors.magenta(
+      `Update offer transaction submitted at: ${colors.blue(txHash)}`,
+    ),
+  );
 }
