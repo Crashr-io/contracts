@@ -7,7 +7,14 @@ import {
   MintingPolicy,
   OutRef,
 } from "https://deno.land/x/lucid@0.10.7/mod.ts";
-import { acceptOffer, createOffer, generateRandomAssets } from "./utils.ts";
+import {
+  acceptOffer,
+  batchAcceptOffer,
+  cancelOffer,
+  createOffer,
+  generateRandomAssets,
+  updateOffer,
+} from "./utils.ts";
 
 console.log(
   colors.yellow(
@@ -128,39 +135,7 @@ if (args.includes("--ada-nft") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
-
-  console.log(colors.green("ADA-NFT trade successful\n"));
-}
-
-// ADA to NFT Trade
-// Seller offers to trade 10 ADA for a specific NFT
-if (args.includes("--ada-nft") || args.includes("--all")) {
-  title("Starting ADA-NFT trade", "Swapping ADA for NFT");
-
-  // Offer 10 ADA
-  const offer_amount = new Map();
-  offer_amount.set("", new Map([["", 10_000_000n]]));
-
-  // Want to trade for a specific NFT
-  const want_amount = generateRandomAssets(policy_id, 1);
-
-  // Create an offer
-  const offer_tx_hash = await createOffer(
-    seller_pkh!,
-    offer_amount,
-    want_amount,
-    minting_policy,
-    funding_lucid,
-  );
-
-  const offer_out_ref: OutRef = {
-    txHash: offer_tx_hash,
-    outputIndex: 0,
-  };
-
-  // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("ADA-NFT trade successful\n"));
 }
@@ -194,7 +169,7 @@ if (args.includes("--ada-multiasset") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("ADA-MultipleAsset trade successful\n"));
 }
@@ -229,7 +204,7 @@ if (args.includes("--ada-anynft") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("ADA-Any NFT trade successful\n"));
 }
@@ -241,10 +216,10 @@ if (args.includes("--nft-ada") || args.includes("--all")) {
     "Swapping NFT for ADA",
   );
 
-  // Offer 10 ADA
+  // Offer 1 NFT
   const offer_amount = generateRandomAssets(policy_id, 1);
 
-  // Want to trade for more than one NFT
+  // Trade for 10 ADA
   const want_amount = new Map();
   want_amount.set("", new Map([["", 10_000_000n]]));
 
@@ -263,7 +238,7 @@ if (args.includes("--nft-ada") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("NFT-ADA trade successful\n"));
 }
@@ -275,10 +250,10 @@ if (args.includes("--nft-nft") || args.includes("--all")) {
     "Swapping NFT for NFT",
   );
 
-  // Offer 10 ADA
+  // Offer 1 NFT
   const offer_amount = generateRandomAssets(policy_id, 1);
 
-  // Want to trade for more than one NFT
+  // Trade for another NFT
   const want_amount = generateRandomAssets(policy_id, 1);
 
   // Create an offer
@@ -296,7 +271,7 @@ if (args.includes("--nft-nft") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("NFT-NFT trade successful\n"));
 }
@@ -308,10 +283,10 @@ if (args.includes("--nft-anynft") || args.includes("--all")) {
     "Swapping NFT for Any NFT",
   );
 
-  // Offer 10 ADA
+  // Offer 1 NFT
   const offer_amount = generateRandomAssets(policy_id, 1);
 
-  // Want to trade for more than one NFT
+  // Want to trade for any NFT under a policy ID
   const want_amount = new Map();
   want_amount.set(policy_id, new Map([["", 1n]]));
 
@@ -330,7 +305,7 @@ if (args.includes("--nft-anynft") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("NFT-Any NFT trade successful\n"));
 }
@@ -342,10 +317,10 @@ if (args.includes("--nft-anymultinft") || args.includes("--all")) {
     "Swapping NFT for Any Multiple NFT",
   );
 
-  // Offer 10 ADA
+  // Offer 1 NFT
   const offer_amount = generateRandomAssets(policy_id, 1);
 
-  // Want to trade for more than one NFT
+  // Want to trade for more than one NFT under a policy ID
   const want_amount = new Map();
   want_amount.set(policy_id, new Map([["", 5n]]));
 
@@ -364,7 +339,7 @@ if (args.includes("--nft-anymultinft") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("NFT-Any Multiple NFT trade successful\n"));
 }
@@ -376,7 +351,7 @@ if (args.includes("--nft-multiasset") || args.includes("--all")) {
     "Swapping NFT for NFT",
   );
 
-  // Offer 10 ADA
+  // Offer 1 NFT
   const offer_amount = generateRandomAssets(policy_id, 1);
 
   // Want to trade for more than one NFT
@@ -397,7 +372,7 @@ if (args.includes("--nft-multiasset") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("NFT-Multiple Assets trade successful\n"));
 }
@@ -409,10 +384,10 @@ if (args.includes("--multiasset-ada") || args.includes("--all")) {
     "Swapping Multiple Assets for ADA",
   );
 
-  // Offer 10 ADA
+  // Offer multiple assets
   const offer_amount = generateRandomAssets(policy_id, 5);
 
-  // Want to trade for more than one NFT
+  // Trade for ADA
   const want_amount = new Map();
   want_amount.set("", new Map([["", 10_000_000n]]));
 
@@ -431,7 +406,7 @@ if (args.includes("--multiasset-ada") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("Multiasset-ADA trade successful\n"));
 }
@@ -443,10 +418,10 @@ if (args.includes("--multiasset-nft") || args.includes("--all")) {
     "Swapping Multiasset for NFT",
   );
 
-  // Offer 10 ADA
+  // Offer Multiple Assets
   const offer_amount = generateRandomAssets(policy_id, 5);
 
-  // Want to trade for more than one NFT
+  // Trade for 1 NFT
   const want_amount = generateRandomAssets(policy_id, 1);
 
   // Create an offer
@@ -464,7 +439,7 @@ if (args.includes("--multiasset-nft") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("Multiasset-NFT trade successful\n"));
 }
@@ -476,10 +451,10 @@ if (args.includes("--multiasset-multiasset") || args.includes("--all")) {
     "Swapping Multiasset for Multiasset",
   );
 
-  // Offer 10 ADA
+  // Offer Multiple Assets
   const offer_amount = generateRandomAssets(policy_id, 5);
 
-  // Want to trade for more than one NFT
+  // Trade for Multiple Assets
   const want_amount = generateRandomAssets(policy_id, 6);
 
   // Create an offer
@@ -497,7 +472,7 @@ if (args.includes("--multiasset-multiasset") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("Multiasset-Multiasset trade successful\n"));
 }
@@ -509,10 +484,10 @@ if (args.includes("--multiasset-anynft") || args.includes("--all")) {
     "Swapping Multiasset for any NFT",
   );
 
-  // Offer 10 ADA
+  // Offer multiple assets
   const offer_amount = generateRandomAssets(policy_id, 5);
 
-  // Want to trade for more than one NFT
+  // Want to trade for any NFT under a policy ID
   const want_amount = new Map();
   want_amount.set(policy_id, new Map([["", 1n]]));
 
@@ -531,7 +506,7 @@ if (args.includes("--multiasset-anynft") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("Multiasset-Any NFT trade successful\n"));
 }
@@ -543,10 +518,10 @@ if (args.includes("--multiasset-anymultiasset") || args.includes("--all")) {
     "Swapping Multiasset for any Multiasset",
   );
 
-  // Offer 10 ADA
+  // Offer Multiple Assets
   const offer_amount = generateRandomAssets(policy_id, 5);
 
-  // Want to trade for more than one NFT
+  // Want to trade for more than one NFT under a policy ID
   const want_amount = new Map();
   want_amount.set(policy_id, new Map([["", 5n]]));
 
@@ -565,7 +540,127 @@ if (args.includes("--multiasset-anymultiasset") || args.includes("--all")) {
   };
 
   // Buyer accepts the offer
-  await acceptOffer(offer_out_ref, want_amount, minting_policy, funding_lucid);
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 
   console.log(colors.green("Multiasset-Any Multiasset trade successful\n"));
+}
+
+if (args.includes("--batch-tx") || args.includes("--all")) {
+  title(
+    "Starting Batch Transaction",
+    "Batching multiple trades into a single transaction",
+  );
+
+  const trade_count = 2;
+  const outrefs: OutRef[] = [];
+
+  for (let i = 0; i < trade_count; i++) {
+    const offer_amount = generateRandomAssets(policy_id, 5);
+    const want_amount = generateRandomAssets(policy_id, 5);
+    const offer_tx_hash = await createOffer(
+      seller_pkh!,
+      offer_amount,
+      want_amount,
+      minting_policy,
+      funding_lucid,
+    );
+    outrefs.push({
+      txHash: offer_tx_hash,
+      outputIndex: 0,
+    });
+  }
+
+  // Buyer accepts the offer
+  await batchAcceptOffer(outrefs, minting_policy, funding_lucid);
+
+  console.log(colors.green("Batch Transaction successful\n"));
+}
+
+if (args.includes("--create-offer")) {
+  title(
+    "Starting Create Offer Transaction",
+    "Creating an offer to trade",
+  );
+
+  // Offer 10 ADA
+  const offer_amount = new Map();
+  offer_amount.set("", new Map([["", 10_000_000n]]));
+
+  // Want to trade for a specific NFT
+  const want_amount = new Map();
+  want_amount.set(policy_id, new Map([["", 1n]]));
+
+  // Create an offer
+  const offer_tx_hash = await createOffer(
+    seller_pkh!,
+    offer_amount,
+    want_amount,
+    minting_policy,
+    funding_lucid,
+  );
+
+  const offer_out_ref: OutRef = {
+    txHash: offer_tx_hash,
+    outputIndex: 0,
+  };
+
+  console.log(colors.green("Offer created successfully\n"));
+  console.log({ offer_out_ref });
+}
+
+if (args.includes("--cancel")) {
+  title(
+    "Starting Cancel Transaction",
+    "Cancelling a trade",
+  );
+
+  const [, tx_hash, output_index] = args;
+  const offer_out_ref: OutRef = {
+    txHash: tx_hash,
+    outputIndex: parseInt(output_index),
+  };
+
+  console.log({ offer_out_ref });
+
+  await cancelOffer(
+    offer_out_ref,
+    await seller_wallet.wallet.address(),
+    seller_lucid,
+  );
+}
+
+if (args.includes("--update-listing")) {
+  const [, tx_hash, output_index] = args;
+  const out_ref: OutRef = {
+    txHash: tx_hash,
+    outputIndex: parseInt(output_index),
+  };
+
+  // Offer 10 ADA
+  const new_offer_amount = new Map();
+  new_offer_amount.set("", new Map([["", 15_000_000n]]));
+
+  // Want to trade for a specific NFT
+  const new_want_amount = new Map();
+  new_want_amount.set(policy_id, new Map([["", 1n]]));
+
+  await updateOffer(
+    seller_pkh!,
+    new_offer_amount,
+    new_want_amount,
+    minting_policy,
+    out_ref,
+    funding_lucid,
+    seller_wallet,
+  );
+}
+
+if (args.includes("--accept-offer")) {
+  const [, tx_hash, output_index] = args;
+  const offer_out_ref: OutRef = {
+    txHash: tx_hash,
+    outputIndex: parseInt(output_index),
+  };
+
+  await acceptOffer(offer_out_ref, minting_policy, funding_lucid);
 }
