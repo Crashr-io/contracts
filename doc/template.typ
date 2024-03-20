@@ -164,7 +164,7 @@
 #let buyer_output = tx_output(
   title: "Buyer",
   ada: "47 minus tx fee",
-  assets: "None",
+  assets: "NFT_1, NFT_2, NFT_3, NFT_4",
   datum: datum_none
 )
 
