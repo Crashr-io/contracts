@@ -378,7 +378,7 @@
       #set par(justify: true)
       #set text(size: 9pt, weight: "regular")
       #align(left)[
-        ABSTRACT. The Crashr protocol is a decentralized digital asset marketplace that introduces multi-asset trading capabilities on the Cardano blockchain. By expanding beyond the traditional ADA-NFT exchange model, Crashr enables users to trade a wide array of digital assets, including fungible and non-fungible tokens, in a single transaction. This protocol uses the #jpg_store's robust v3 contract as its foundation. This document outlines the key differences between the #jpg_store v3 protocol and the Crashr protocol, and the offchain architecture that supports the Crashr platform.
+      Crashr, a decentralized marketplace on Cardano, facilitates multi-asset trading. It extends beyond the standard ADA-NFT exchange model, enabling users to trade various digital assets, fungible and non-fungible, in a single transaction. Leveraging the established #jpg_store v3 contract as a foundation, this whitepaper explores the key differences between Crashr and #jpg_store v3, while also detailing the off-chain architecture that powers the Crashr platform.
       ]
     ]
   ]
@@ -389,13 +389,9 @@
 #let wp_introduction = [
   = Introduction
 
-  The Crashr protocol is a decentralized digital asset marketplace on Cardano network.
+  The Crashr protocol is a decentralized marketplace for digital assets on the Cardano network. It leverages the robust foundation of the open-source #jpg_store v3 contract, well-established for its secure and user-friendly smart contract that facilitates efficient asset trading. Notably, this contract excels at handling multiple NFT-ADA transactions.
 
-  The protocol is built upon the open-source #jpg_store v3 contract developed in Aiken. The #jpg_store v3 contract is a robust smart contract that facilitates secure and straightforward asset exchange. It is designed to handle NFT-ADA transactions optimized for processing bulk orders. 
-
-  This document will outline the functionalities from the #jpg_store v3 contract that are retained in the Crashr protocol, as well as the new features introduced by Crashr. The Crashr protocol aims to enhance the trading experience on the Cardano blockchain by enabling arbitrary asset trading, including ADA, NFTs, and fungible tokens, in a single transaction. 
-
-  This document will also explain the high level offchain architecture supporting the Crashr platform, as well as the use-cases of these components for both users and third party applications.
+  This whitepaper explores the core functionalities inherited from the #jpg_store v3 contract that Crashr retains, while also unveiling the innovative features it introduces. Crashr aims to significantly improve trading on the Cardano blockchain by enabling seamless transactions involving various digital assets in a single interaction. This includes fungible tokens, NFTs, and ADA. Additionally, the paper delves into the off-chain architecture that underpins the Crashr platform and how these components facilitate interaction for both users and third-party applications.
 
   \ \ \
 ]
@@ -403,20 +399,21 @@
 #let wp_crashr_protocol_overview = [
 = Crashr Protocol Overview
 
-The protocol is designed to use a single smart contract that can handle all the operations needed by the Crashr platform. This includes Listing, Offer, Buy/AcceptOffer, and Cancel/Update.
+The Crashr platform operates on a single, comprehensive smart contract that governs all core functionalities, including listing assets, making bids on listings, buying assets, accepting bids, and managing listings (cancellation and updates).
 
-- A listing operation is a simple transaction that sends the assets to the marketplace contract and specifies the assets the user wants in return in the datum.
-- An offer operation is not exactly different from a listing operation, in fact they are the same. The difference is that an offchain component is needed to identify an offer from a listing by checking if there is an existing listing currently for the assets the user wants to get in return.
-- A buy operation is a transaction that attempts to unlock the assets locked by the owner of the listing. The buyer must satisfy the payouts set by the owner as well as the royalty and marketplace fees.
-#note("Payout is a data structure in the smart contract that holds the address of the recipient and the assets they will receive. The datum holds a list of payouts which typically includes the seller payout and royalty payout(s). Marketplace payout is enforced by the contract that is why it's not included in the list of payouts.")
-- An accept offer operation is also the same as a buy operation, like the offer transaction, to identify an accept offer transaction, an offchain component is needed to check if the user is accepting an offer. In the onchain layer, there are no differences.
-- A cancel operation is a transaction that allows the owner to unlock the assets they locked in the marketplace contract. The only requirement of this operation is the owner's signature. 
-- An update operation is similar to a cancel operation but that owner can unlock the assets and lock new assets or update the datum of the listing then send them back to the marketplace address.
-#note("A user can satisfy multitple listing/offers in a single transaction. The only requirement is that the user must satisfy all the payouts, and each listing/offer must have a separate marketplace fee output, and it's assumed that for each listing/offer, the marketplace fee output is always the first.")
+- *Listing:* Users can list their digital assets on the marketplace by depositing them into the smart contract and specifying a desired price or initiating an auction.
+- *Making an Offer (Bidding):* This feature allows users to submit bids on existing listings, potentially competing with other buyers. The seller can then choose to accept the highest bid or decline all offers.
+- *Buying:*  To purchase an asset, users initiate a transaction with the smart contract, paying the seller's price along with the marketplace and royalty fees (if applicable).
+
+- *Accepting an Offer:* Similar to buying an asset, users can accept an offer received through the off-chain matching system. On the blockchain, this action appears identical to a regular purchase.
+- *Canceling a Listing or Offer:* Users can remove their listed assets from the marketplace by initiating a cancellation transaction. This requires a digital signature to confirm ownership and authorization for withdrawing the assets.
+- *Updating a Listing:* This functionality combines aspects of canceling and relisting. Users can withdraw their assets from an existing listing, modify details (e.g., price), or add different assets before putting them back up for trade on the marketplace.
+
+- *Multiple Listings/Offers in a Single Transaction:* Crashr allows users to fulfill multiple listings or offers within a single transaction. Each listing or offer must include its individual marketplace fee. For transactions involving multiple listings/offers, an "offset" property within the redeemer specifies the position of each marketplace fee, followed by the payouts for that listing. This ensures accurate fee allocation and payouts for each fulfilled listing or offer.
 
 == Traditional Limitations
 
-In Cardano, the current digital asset marketplaces typically operate within a straightforward framework, where users can trade ADA for NFTs or vice versa. While this model has proven effective in normal use-cases, we believe that it falls short in accommodating the diverse and complex trading needs of users in the digital asset space. 
+Current Cardano marketplaces often adopt a limited trading model, primarily facilitating exchanges between ADA and NFTs. While this approach has served as a solid foundation for basic transactions, it falls short of addressing the evolving needs of the digital asset community.
 
 #align(center, raw-render(
   ```dot
@@ -434,7 +431,7 @@ In Cardano, the current digital asset marketplaces typically operate within a st
 
 == What Crashr Protocol Offers
 
-The Crashr protocol introduces a new feature that allows users to trade any arbitrary combination of assets in a single transaction. This includes trading ADA for NFTs, NFTs for ADA, NFTs for NFTs, ADA and NFTs for other NFTs, and even complex trades involving multiple fungible tokens and NFTs. This flexibility opens up a wide range of trading possibilities, enabling users to engage in more dynamic and diverse transactions on the Cardano blockchain.
+The Crashr protocol brings a feature that broadens trading options, enabling transactions involving various combinations of assets in one go. This includes exchanging ADA for NFTs, NFTs with each other, or more complex trades that involve ADA, NFTs, and several fungible tokens. This capability extends the range of possible transactions on the Cardano blockchain, allowing for a more versatile trading landscape.
 
 #align(center, raw-render(
   ```dot
@@ -456,17 +453,17 @@ The Crashr protocol introduces a new feature that allows users to trade any arbi
 #let wp_smart_contract_specifications = [
 = The Marketplace Smart Contract
 
-The Crashr protocol retains the same functionality as the #jpg_store v3 contract with a few modifications in the validation logic to support multi-asset trades. This section is devoted to explaining the core functionalities of the original contract and the enhancements made by Crashr.
+The Crashr protocol maintains the core functionalities of the #jpg_store v3 contract, with modifications to the validation logic to accommodate multi-asset trades. This section outlines the key features of the original contract and details the enhancements introduced by Crashr.
 
 == Listings and Offers
 
-One of the key differences between #jpg_store v3 and Crashr is that the #jpg_store uses different contract or validator for listing and offer transaction. In Crashr, we use the same contract for both listing and offer transactions. The nuance is that there needs to be an offchain component to identify if the user is making an offer or a listing because on the onchain layer there is no difference between the two.
+One of the key differences between #jpg_store v3 and Crashr is that #jpg_store uses different contracts or validators for listing and offer transactions. In Crashr, we use the same contract for both of these actions. This consolidation requires an off-chain mechanism to determine whether a transaction is an offer or a listing, since the on-chain data doesn't distinguish between the two.
 
-This change simplifies how the users interact with the marketplace contract.
+This change simplifies how users interact with the platform.
 
 == Payouts
 
-We've updated the shape of the payouts to accommodate multi-asset trading. The payouts are a list of addresses and assets that the user and royalties will receive. The marketplace payout is not included in the list because it is enforced by the contract and is always the first output in the transaction. 
+We've updated the shape of the payouts to accommodate multi-asset trading. Payouts are a list of addresses and assets that the user and royalty recepients will receive. The marketplace payout is not included in the list because it is enforced by the contract and is always the first output in each listing being fulfilled. 
 
 === JPG Store v3 Payout Structure
 The #jpg_store payout structure allows the user to specify their address and the amount of ADA they want to receive for the trade:
@@ -501,7 +498,7 @@ In the Crashr protocol, we used `Value` instead of `Int` to allow the user to sp
 ]
 #pagebreak()
 === Payouts Example
-To understand payouts better, let's consider an example where a user wants to trade 10 ADA and NFT_1 for NFT_2. In this example trade, the user will send the assets to the marketplace contract with the following datum:
+To illustrate how payouts work, imagine a scenario where a user wishes to exchange 10 ADA and NFT_1 for NFT_2. In this example, the user would transfer the specified assets to the marketplace contract, accompanied by the following datum:
 
 #block(
   fill: luma(200),     
@@ -526,13 +523,13 @@ To understand payouts better, let's consider an example where a user wants to tr
   ```
 ]
 
-In this example, the user only wants to receive NFT 2 in return for the trade. The `policy_id_of_NFT_2` is the policy ID of the NFT_2 asset, and the `NFT_2` is the asset name. The `owner_pkh` is the public key hash of the user who locked the assets in the marketplace contract. 
+In this scenario, the user's goal is to receive NFT_2 in exchange. The policy_id_of_NFT_2 represents the policy ID associated with the NFT_2 asset, while NFT_2 itself is the name of the asset. The owner_pkh refers to the public key hash of the user who has placed the assets into the marketplace contract.
 
-This trade also do not specify a royalty payout. If there is a royalty payout, it will be included in the payouts list with the address of the original creator of the NFT and the amount of ADA they will receive.
+This particular trade does not include a royalty payout. However, should a royalty payout be applicable, it would be detailed in the list of payouts, specifying both the address of the NFT's original creator and the ADA amount designated as the royalty.
 
 === Collection Offer Payout Example
 
-In some cases, the user may want to receive any asset from a particular collection. This is also called a collection offer. This type of payout is also supported by the Crashr protocol. In this case, the user only needs to provide the policy ID of the collection and the number of assets they want to receive. The buyer can fulfill this request by sending any asset that falls under the given policy ID. The payouts would look like this:
+There are instances where a user might be interested in acquiring any asset from a specific collection, often referred to as a collection offer. The Crashr protocol accommodates this type of transaction. Here, the user is required to specify just the policy ID of the desired collection along with the quantity of assets they wish to receive. A buyer can meet this request by transferring any asset governed by the specified policy ID. The structure of such payouts is outlined as follows:
 
 #block(
   fill: luma(200),     
@@ -559,11 +556,11 @@ In some cases, the user may want to receive any asset from a particular collecti
   #pagebreak()
   == Marketplace Fee
   
-  The marketplace fee is a fee enforced by the protocol to support the maintenance and development of the marketplace. The fee is hardcoded in the contract and is always the first output in the transaction. 
+ The marketplace fee, mandated by the protocol, is designed to fund the ongoing maintenance and development of the marketplace. This fee is predefined within the contract's code and is consistently positioned as the first output when fulfilling a listing.
 
   === JPG Store v3 Fee Calculation
 
-  In the #jpg_store v3 contract, the marketplace fee is calculated as 2% of the total payout amount. Since the protocol only supports NFT-ADA trades in the original contract, the fee calculation is straightforward.
+ Within the #jpg_store v3 contract, the marketplace fee is determined to be 2% of the overall payout sum. Given that the original contract was designed exclusively for NFT-ADA exchanges, the process for calculating this fee remains relatively simple.
 
   $ "Total Fee" = (sum_("i=1")^n P#sub[i]) * (2/100) $
 
@@ -575,11 +572,12 @@ In some cases, the user may want to receive any asset from a particular collecti
 
   === Crashr Fee Calculation
 
-  In the Crashr protocol, the marketplace fee calculation is adjusted to account for the diverse trading possibilities now that it supports multi-asset arbitrary trades. The fee for ADA payouts remain the same as the original contract.
+  With the Crashr protocol supporting multi-asset arbitrary trades, the marketplace fee structure has been updated to cater to the wider array of trading options. The fees for ADA transactions continue as per the original contract's terms.
 
+  #pagebreak()
   === Unique Token Fee
   
-  Since the protocol now supports trades involving multiple assets we needed to account for the tokens included in the payout. To accommodate this, we introduced a unique token fee. Unique token fee is a fee that must be paid for each unique asset requested by the owner of the listing. The fee is also hardcoded in the contract and is currently set to 1 ADA per unique asset. This fee is enforced by the contract. For fungible token transactions, the unique token fee is also applied if the quantity of the tokens is below 100. But for quantities 100 and above, the fee is the same as the original marketplace fee which is 2% of the total payout amount for that token.
+  The addition of multi-asset trades led to the introduction of a unique token fee. This fee, set at 1 ADA for each distinct asset requested by the listing owner, is predefined in the contract and automatically applied. For fungible token transactions involving less than 100 tokens, this unique token fee applies. When the quantity reaches 100 or more, the fee adjusts to match the original marketplace's 2% of the total token payout.
 
   $ "Total ADA Fee" = max(sum_("i=1")^u (Q#sub[i] < 100 ? 1 : 0) * U_f + sum_("k=1")^n P#sub[k] * (2/100), 1) $
 
@@ -611,24 +609,24 @@ In some cases, the user may want to receive any asset from a particular collecti
 
   == Royalties
 
-  Royalty is an important feature in the NFT space that allows creators to earn a percentage of the sale price whenever their NFT is traded. In the #jpg_store v3 contract, royalty calculations are straightforward as the protocol only supports NFT-ADA trades. The royalty fee is calculated as a percentage of the total amount of the listing.
-  
-  The Crashr protocol also supports royalties and allows the user to specify a royalty fee for the original creator of the NFT. This fee is calculated offchain and is expected to be in ADA, based on the estimated price of the assets at the time of listing. The royalty fee is not enforced by the contract but can be added to the payouts list. The minimum requirement for a royalty fee is 1 ADA.
+  Royalty is an important part of the NFT ecosystem, enabling creators to receive a portion of the sale price each time their NFT is traded. The #jpg_store v3 contract handles royalty calculations directly, applying them as a percentage of the total listing amount in NFT-ADA trades.
 
-  #note([ Due to the unique nature of multi-asset trades, the royalty fee calculation depends heavily on the assets involved in the trade. If there are multiple assets from different projects, each project's royalty address may be included in the payouts list, provided the ADA value meets the minimum requirement of 1 ADA.])
+  The Crashr protocol also supports royalties, allowing users to allocate a royalty fee for the NFT's original creator. This fee, usually in ADA, is determined offchain based on the asset's estimated value at the time of listing. Although the Crashr contract doesn't mandate the inclusion of this fee, it provides the option to add it to the list of payouts, with a set minimum of 1 ADA for the royalty fee.
 
-  #pagebreak()
+
+  #note("With multi-asset trades, the calculation of royalty fees is significantly influenced by the specific assets involved. When trades include assets from various projects, it's possible to list each project's royalty address in the payouts, as long as the assigned ADA value adheres to the minimum threshold of 1 ADA.")
+
   == Treasury
 
-  The treasury wallet will hold the marketplace fees collected from successful trades. This wallet is managed by the Crashr team and is used to fund the development and maintenance of the marketplace. Aside from the development and maintenance, a percentage of the treasury funds may be allocated to community initiatives, partnerships, and other strategic activities that benefit the Crashr ecosystem.
+  The treasury wallet is responsible for collecting the marketplace fees. It is a multi-sig wallet being managed by the Crashr team and can expand to include other stakeholders in the future. This wallet holds the fees collected from successful trades on the marketplace, rewards from ADA staking, and other sources of revenue. The treasury wallet is a critical component of the Crashr ecosystem, ensuring the sustainability and growth of the platform.
 
   _TODO:_ Fee breakdown, treasury address?, 
 
   == Security
 
-  We understand that security is paramount in a decentralized marketplace. The Crashr protocol maintains the security features of the #jpg_store v3 contract, ensuring that all assets are secure and that transactions are executed with precision and accuracy. 
+  Security is a critical aspect of any decentralized marketplace, and the Crashr protocol upholds the rigorous security standards set by the #jpg_store v3 contract. This commitment ensures the safeguarding of assets and the precise execution of transactions.
 
-  Since the contract have been modified to support multi-asset trades, we have taken additional measures to have the changes audited by security experts to ensure that the protocol remains robust and secure. As of the time of writing, this contract is still under audit.
+  With the adaptation of the contract to facilitate multi-asset trades, additional security measures have been implemented. These modifications are currently undergoing thorough audits by security experts to verify that the protocol's integrity and security remain uncompromised. At this point, the auditing process is still ongoing.
 
   \ \ \
 ]
@@ -636,8 +634,7 @@ In some cases, the user may want to receive any asset from a particular collecti
 #let wp_crashr_transactions = [
 = Marketplace Transaction Flow
 
-To better understand the operations supported by the Crashr protocol, we will delve into the transactional flow for each key action: Listing, Buying, and Canceling/Updating a listing. This section will also visualize how the actual transaction will look like on the Cardano network. These transactions are the core operations that drive the marketplace's functionality and enable users to engage in a wide range of asset trades.
-
+To grasp the functionalities enabled by the Crashr protocol, it's useful to explore the transaction flow for essential actions such as Listing, Buying, and Canceling/Updating a listing. This exploration will provide insight into how transactions are structured within the Cardano network. These key operations form the backbone of the marketplace, facilitating a diverse array of asset trades and enhancing user interaction with the platform.
 
 == Creating a Listing or Offer
 The process for listing assets under the modified contract remains largely aligned with the practices established by #jpg_store. The notable enhancement is the contract's expanded capability to accommodate multiple assets, broadening the scope of transactions beyond the original single-asset framework. 
@@ -655,6 +652,7 @@ The process for listing assets under the modified contract remains largely align
   ]
 )
 
+#pagebreak()
 == Buying or Accepting an Offer
 
 To successfully complete a transaction, buyers are required to transfer the assets specified by the seller to the seller's address. The contract also requires buyers to send a 2% fee to the marketplace, based on the total of the seller's payout plus any royalty fees. The 2% fee applies to ADA (2% or 1 ADA, whichever is higher) and to fungible tokens transactions that reach the threshold of 100 tokens.
@@ -691,7 +689,7 @@ The contract enables the listing owner to cancel or update their listing, retain
 #let wp_offchain_architecture = [
 = Offchain Architecture
 
-The offchain architecture of the Crashr platform is designed to support the core functionalities of the marketplace, ensuring seamless and efficient trading operations. The offchain components play a crucial role in enhancing the user experience, providing real-time data processing, and enabling complex multi-asset trades. All offchain components are written in C\# using the .NET Framework.
+The offchain architecture of the Crashr platform is designed to support the main functionalities of the marketplace, making trading operations seamless and efficient. Offchain components are essential for enhancing user experience, providing real-time data processing, and allowing for complex multi-asset trades. All offchain parts are developed in C\# using the .NET Framework.
 
 == High Level Overview of Offchain Components
 
@@ -722,12 +720,13 @@ The offchain architecture of the Crashr platform is designed to support the core
   ```
 ))
 
+#pagebreak()
 == Crashr Sync
-Crashr Sync is a critical component of the offchain architecture responsible for processing data from the Cardano blockchain in real-time and saves the processed data, block-by-block, to the database. This component ensures that the marketplace remains up-to-date with the latest blockchain activities, providing users with accurate and timely information for their trading activities. Crashr Sync is built on the foundational technologies of the Cardano Sync by SAIB Inc. and the Pallas library by #tx_pipe, enabling efficient data processing and indexing of blockchain data.
+Crashr Sync is an essential component of the offchain architecture, designed to process data from the Cardano blockchain in real-time and record it block by block into a database. This ensures the marketplace is consistently synchronized with the latest blockchain activities, providing users with up-to-date information for their trading activities. Built upon the technologies of Cardano Sync by SAIB Inc. and the Pallas library by #tx_pipe, Crashr Sync facilitates efficient blockchain data processing and indexing.
 
-This component is inspired by #tx_pipe's Scrolls project, which provides a robust framework for indexing blockchain data for more efficient querying and data management. Crashr Sync leverages a series of specialized reducers to index specific types of data relevant to the marketplace's operations, including smart contract activities, asset metadata, and token prices. These reducers ensure that the marketplace remains dynamic and responsive.
+The component takes cues from the Scrolls project by #tx_pipe, offering a framework for effective blockchain data indexing, which aids in improved data querying and management. Crashr Sync utilizes targeted reducers to index specific data types important for marketplace operations, such as smart contract interactions, asset metadata, and token pricing, keeping the platform responsive and current.
 
-#note([Crashr Sync relies on the Cardano Node to access blockchain data.])
+#note([Crashr Sync uses the Cardano Node to read blockchain data.])
 
 === Reducers in Crashr Sync
 
@@ -746,8 +745,9 @@ Crashr Sync is composed of several indexers called *reducers*, each designed to 
 
 == Crashr API
 
-Crashr API is a crucial component designed to expose blockchain data in a more digestible format. This API layer serves as the bridge between the complex data indexed by Crashr Sync and the user-facing elements of the marketplace, ensuring that information is accessible, understandable, and actionable. Furthermore, the Crashr API opens avenues for businesses looking to leverage our platform's rich data ecosystem, offering them the tools to build innovative applications on top of this data.
+Crashr API is a component designed to expose blockchain data in a more digestible format. This API layer serves as the bridge between the complex data indexed by Crashr Sync and the user-facing elements of the marketplace, ensuring that information is accessible, understandable, and actionable. Furthermore, the Crashr API opens avenues for businesses looking to leverage our platform's rich data ecosystem, offering them the tools to build innovative applications on top of this data.
 
+#pagebreak()
 === API Modules
 
 The Crashr API is structured into three primary modules each tailored to serve distinct data sets and functionalities relevant to marketplace operations and third-party integrations. The core modules include:
@@ -776,21 +776,29 @@ The Crashr UI is the user-facing component of the marketplace, designed to provi
 
   While we are satisfied with the initial core functionalities of the Crashr protocol, we recognize that there is still room for growth and improvement. Our team is committed to ongoing development and enhancement of the platform, with a focus on expanding the marketplace's capabilities and improving the user experience.
 
-  We are also exploring opportunities to expand the Crashr ecosystem 
+  We are also exploring opportunities to expand the Crashr ecosystem. Some of our plans for the future include:
 
-  _TODO:_ what features do we know we want to add? what features are we considering? what are the next steps for the project?
+  - *SDKs:* Developing API SDKs and Embeddable SDKs to enable seamless integration with third-party applications and services.
+
+  - *CIP-68 Identity/Profile Tokens:* Exploring the implementation of CIP-68 Identity/Profile Tokens to enhance profile management within the marketplace.
+
+  - *Marketplace Aggregator:* Building a marketplace aggregator to provide users with a comprehensive view of all available listings and offers across multiple platforms.
+
+  - *Staking Platform:* We'd like to integrate staking capabilities into the platform to enable users to earn rewards by staking their assets.
+
+  - *Cross-chain compatibility:* Exploring interoperability with other blockchains to enable multi-chain asset trading. This includes cross-chain tradings, bridging assets, and more.
+
+  - *Real-World Asset Trading:* We're also exploring tokenizing real-world assets and enabling their trading on the Crashr platform. 
 ]
 
 #let wp_acknowledgements = [
   = Acknowledgements
 
-  We are very proud of the work we have put into this protocol but we could not have done it without the great open-source contributions from the Cardano community. We would like to thank the following projects for making this possible:
+  While we take great pride in the development of this protocol, it's important to acknowledge that our progress was significantly enhanced by the contributions from the Cardano open-source community. We extend our gratitude to the following projects for their invaluable support:
 
   - #link("https://github.com/jpg-store/contracts-v3")[*JPG Store*]: For the foundational contract that Crashr is built upon.
 
-  - #link("https://txpipe.io/")[*TxPipe*]: For providing the open-source tools that make Cardano development so much more developer-friendly. 
+  - #link("https://txpipe.io/")[*TxPipe*]: For providing open-source tools that make Cardano development so much more developer-friendly. 
   
   - #link("https://github.com/CardanoSharp")[*CardanoSharp*] & #link("https://github.com/Orion-Crypto/cardanosharp-wallet")[*Orion*]: For their open-source Cardano Cryptographic and Serialization library for .NET applications.
-
-  - *TBD*: For our audit.
 ]

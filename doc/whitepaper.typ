@@ -39,12 +39,6 @@
 #wp_crashr_transactions
 #pagebreak()
 #wp_offchain_architecture
-#wp_future_development
 #pagebreak()
+#wp_future_development
 #wp_acknowledgements
-
-// CIP 68 NFT Profile
-// Cross-chain 
-// Staking 
-// SDKs -> API SDK and Embeddable SDK
-// NFT aggregation
