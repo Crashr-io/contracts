@@ -789,6 +789,8 @@ The Crashr UI is the user-facing component of the marketplace, designed to provi
   - *Cross-chain compatibility:* Exploring interoperability with other blockchains to enable multi-chain asset trading. This includes cross-chain tradings, bridging assets, and more.
 
   - *Real-World Asset Trading:* We're also exploring tokenizing real-world assets and enabling their trading on the Crashr platform. 
+
+  \ \ \
 ]
 
 #let wp_acknowledgements = [
