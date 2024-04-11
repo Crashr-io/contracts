@@ -13,6 +13,8 @@ import {
   TxSigned,
 } from "https://deno.land/x/lucid@0.10.1/mod.ts";
 
+import { Datum } from "./types.ts";
+
 import {
   printExecutionDetails,
   randomAssetId,
@@ -40,10 +42,9 @@ const marketplacePkh =
 const marketplaceStakePkh =
   "2c967f4bd28944b06462e13c5e3f5d5fa6e03f8567569438cd833e6d";
 
-export const BULK_PURCHASE_SIZE = 52;
+export const BULK_PURCHASE_SIZE = 26; // 54
 
 const validator = readValidator();
-console.log(validator);
 
 export const singleAsset = {
   ["627c22b8a13e0f7dad08ea3cc25ac6f254822acf9ded1b52b8578b413d0acfbf35c28c6346d8de3e27b7ebeab19022a24d9cedb87e08078b03a6dd13"]:
@@ -56,6 +57,20 @@ export const bulkPurchaseAssets: Assets = new Array(BULK_PURCHASE_SIZE)
     acc[randomAssetId()] = 1n;
     return acc;
   }, {});
+
+export type Payout = {
+  address: Addr;
+  amount: Map<string, Map<string, bigint>>;
+};
+
+export type Addr = {
+  payment_credential: {
+    pkh: string;
+  };
+  stake_credential: {
+    pkh: string;
+  } | null;
+};
 
 export const marketplaceAddr = C.BaseAddress.new(
   0,
@@ -90,10 +105,12 @@ export async function test(
     .selectWalletFromPrivateKey(buyerPk)
     .wallet.address();
 
-  const { paymentCredential: sellerPaymentCredential } =
-    getAddressDetails(sellerAddr);
-  const { paymentCredential: royaltyPaymentCredential } =
-    getAddressDetails(royaltyAddr);
+  const { paymentCredential: sellerPaymentCredential } = getAddressDetails(
+    sellerAddr,
+  );
+  const { paymentCredential: royaltyPaymentCredential } = getAddressDetails(
+    royaltyAddr,
+  );
 
   const emulator = new Emulator(
     [
@@ -108,6 +125,110 @@ export async function test(
       {
         address: buyerAddr,
         assets: { lovelace: BigInt(1e14) },
+      },
+      {
+        address: refAddr,
+        assets: { lovelace: BigInt(1e14) },
+      },
+    ],
+    {
+      ...PROTOCOL_PARAMETERS_DEFAULT,
+    },
+  );
+
+  const lucid = await Lucid.new(emulator);
+
+  const contractAddress = lucid.utils.validatorToAddress(validator);
+
+  lucid.selectWalletFromPrivateKey(sellerPk);
+
+  const txRef = await lucid
+    .newTx()
+    .payToAddressWithData(
+      refAddr,
+      { scriptRef: validator },
+      {
+        lovelace: 100000000n,
+      },
+    )
+    .complete();
+
+  const signedRef = await txRef.sign().complete();
+
+  await signedRef.submit();
+
+  emulator.awaitBlock(16);
+
+  const txSigned = await fn({
+    contractAddress,
+    lucid,
+    emulator,
+    sellerPaymentCredential,
+    royaltyPaymentCredential,
+    sellerAddr,
+    sellerPk,
+    buyerAddr,
+    buyerPk,
+    royaltyAddr,
+    royaltyPk,
+    refAddr,
+  });
+
+  printExecutionDetails(txSigned, name);
+}
+
+export async function testMultiAsset(
+  name: string,
+  offerAssets: Assets,
+  wantAssets: Assets,
+  fn: (ctx: TestContext) => Promise<TxSigned>,
+) {
+  const sellerPk = generatePrivateKey();
+  const refPk = generatePrivateKey();
+  const buyerPk = generatePrivateKey();
+  const royaltyPk = generatePrivateKey();
+
+  const l = await Lucid.new(undefined, "Preprod");
+
+  const sellerAddr = await l
+    .selectWalletFromPrivateKey(sellerPk)
+    .wallet.address();
+
+  const refAddr = await l.selectWalletFromPrivateKey(refPk).wallet.address();
+
+  const royaltyAddr = await l
+    .selectWalletFromPrivateKey(royaltyPk)
+    .wallet.address();
+
+  const buyerAddr = await l
+    .selectWalletFromPrivateKey(buyerPk)
+    .wallet.address();
+
+  const { paymentCredential: sellerPaymentCredential } = getAddressDetails(
+    sellerAddr,
+  );
+  const { paymentCredential: royaltyPaymentCredential } = getAddressDetails(
+    royaltyAddr,
+  );
+
+  const emulator = new Emulator(
+    [
+      {
+        address: sellerAddr,
+        assets: {
+          lovelace: BigInt(1e14),
+          ...singleAsset,
+          ...offerAssets,
+          ...bulkPurchaseAssets,
+        },
+      },
+      {
+        address: buyerAddr,
+        assets: {
+          lovelace: BigInt(1e14),
+          ...wantAssets,
+          ...bulkPurchaseAssets,
+        },
       },
       {
         address: refAddr,
@@ -178,18 +299,23 @@ export async function testFail(
       .join("");
 
     const message = `
-  ${colors.bold(colors.brightMagenta(name))} - ${colors.green(
-    "passed",
-  )}\n${error}`;
+  ${colors.bold(colors.brightMagenta(name))} - ${
+      colors.green(
+        "passed",
+      )
+    }\n${error}`;
 
     console.log(message);
   }
 }
 
-export function makePayout(cred: string, amount: bigint) {
-  const address = new Constr(0, [new Constr(0, [cred]), new Constr(1, [])]);
+export function makePayout(owner: string, payouts: Payout[]) {
+  const datum: Datum = {
+    payouts,
+    owner,
+  };
 
-  return new Constr(0, [address, amount]);
+  return Data.to(datum, Datum);
 }
 
 export function buyRedeemer(payoutOutputsOffset: number): string {

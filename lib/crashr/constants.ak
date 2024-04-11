@@ -1,5 +1,5 @@
 use aiken/transaction/credential.{Address, Inline, ScriptCredential}
-use jpg/types.{ScriptHash, VerificationKeyHash}
+use crashr/types.{ScriptHash, VerificationKeyHash}
 
 pub const marketplace_stake_sh: ScriptHash =
   #"2c967f4bd28944b06462e13c5e3f5d5fa6e03f8567569438cd833e6d"
@@ -24,3 +24,7 @@ pub fn authorizers() -> List<VerificationKeyHash> {
 pub const marketplace_pct: Int = 20
 
 pub const min_payout: Int = 1000000
+
+pub const ada_fee_per_nft: Int = 1000000
+
+pub const token_fee_threshold: Int = 100

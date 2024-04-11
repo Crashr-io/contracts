@@ -1,13 +1,147 @@
 use aiken/builtin.{tail_list}
-use aiken/dict
+use aiken/dict.{Dict}
 use aiken/list
+use aiken/math
 use aiken/transaction.{
   Datum, InlineDatum, NoDatum, Output, OutputReference, TransactionId,
 }
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
-use aiken/transaction/value.{ada_policy_id, to_dict}
-use jpg/constants.{marketplace_addr}
-use jpg/types.{Payout}
+use aiken/transaction/value.{Value, ada_policy_id}
+use crashr/constants.{
+  ada_fee_per_nft, marketplace_addr, marketplace_pct, min_payout,
+  token_fee_threshold,
+}
+use crashr/types.{Payout}
+
+/// Checks whether the output covers the payout. 
+/// If any asset in the payout is not covered by the output,
+/// this function will return `False`.
+pub fn does_output_cover_payout(payout_value: Value, output_value: Value) {
+  let payout_dict = payout_value |> value.to_dict()
+  let output_dict = output_value |> value.to_dict()
+
+  // Compare values
+  payout_dict
+    |> dict.foldl(
+         True,
+         fn(policy_id, payout_assets, res) {
+           // Compare each asset under this policy_id
+           expect Some(output_assets) = output_dict |> dict.get(policy_id)
+
+           payout_assets
+             |> dict.foldl(
+                  True,
+                  fn(asset_name, payout_amount, _) {
+                    when output_assets |> dict.get(asset_name) is {
+                      // If the asset is found in the output, check if the amount is enough
+                      Some(output_amount) ->
+                        res && output_amount >= payout_amount
+                      // Otherwise check if there are additional assets that can cover
+                      // the payout amount if asset is not ada
+                      None ->
+                        if asset_name != "" || policy_id == ada_policy_id {
+                          res && False
+                        } else {
+                          // count all additional assets                            
+                          res && is_additional_assets_covered(
+                            payout_assets,
+                            output_assets,
+                            payout_amount,
+                          )
+                        }
+                    }
+                  },
+                )
+         },
+       )
+}
+
+/// Helper function for checking if additional assets
+/// are included in the output. This is for offers that
+/// did not specify a specific asset name.
+pub fn is_additional_assets_covered(
+  payout_assets: Dict<ByteArray, Int>,
+  output_assets: Dict<ByteArray, Int>,
+  amount_to_cover: Int,
+) {
+  let requested_assets =
+    payout_assets
+      |> dict.keys()
+      |> list.filter(fn(asset_name) { asset_name != "" })
+
+  let additional_tokens =
+    output_assets
+      |> dict.keys()
+      |> list.count(
+           fn(asset_name) {
+             let included =
+               requested_assets
+                 |> list.has(asset_name)
+             !included
+           },
+         )
+  additional_tokens >= amount_to_cover
+}
+
+test check_does_output_cover_payout() {
+  let value1 =
+    value.from_lovelace(100) |> value.merge(value.from_asset("111", "1", 100))
+  let value2 =
+    value.from_lovelace(101) |> value.merge(value.from_asset("111", "1", 100))
+  does_output_cover_payout(value1, value2)
+}
+
+test check_does_output_cover_payout_for_non_specific_assets() {
+  let value1 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("111", "", 3))
+      |> value.merge(value.from_asset("111", "1", 1))
+  let value2 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("111", "1", 1))
+      |> value.merge(value.from_asset("111", "2", 1))
+      |> value.merge(value.from_asset("111", "3", 1))
+      |> value.merge(value.from_asset("111", "4", 1))
+  does_output_cover_payout(value1, value2)
+}
+
+test check_does_output_not_cover_payout_for_non_specific_assets() fail {
+  let value1 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("111", "", 3))
+      |> value.merge(value.from_asset("111", "1", 1))
+  let value2 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("111", "2", 1))
+      |> value.merge(value.from_asset("111", "3", 1))
+      |> value.merge(value.from_asset("111", "4", 1))
+      |> value.merge(value.from_asset("111", "5", 1))
+      |> value.merge(value.from_asset("111", "6", 1))
+      |> value.merge(value.from_asset("111", "7", 1))
+      |> value.merge(value.from_asset("111", "8", 1))
+  does_output_cover_payout(value1, value2)
+}
+
+test check_does_output_cover_payout_for_non_specific_assets_excess() {
+  let value1 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("112", "4", 1))
+      |> value.merge(value.from_asset("113", "", 1))
+  let value2 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("111", "1", 1))
+      |> value.merge(value.from_asset("111", "2", 1))
+      |> value.merge(value.from_asset("111", "3", 1))
+      |> value.merge(value.from_asset("111", "5", 1))
+      |> value.merge(value.from_asset("111", "6", 1))
+      |> value.merge(value.from_asset("111", "7", 1))
+      |> value.merge(value.from_asset("112", "4", 1))
+      |> value.merge(value.from_asset("113", "4", 1))
+      |> value.merge(value.from_asset("114", "4", 1))
+      |> value.merge(value.from_asset("116", "4", 1))
+      |> value.merge(value.from_asset("117", "4", 1))
+  does_output_cover_payout(value1, value2)
+}
 
 /// Find the outputs that match the list of payouts.
 /// We use a heuristic function combined with the given 
@@ -71,6 +205,60 @@ test skip_10_items_1() {
   skip_10_items([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) == [11]
 }
 
+/// Calculates multiasset fees for the marketplace.
+/// The fee is 2% of the total ada value + 1 ada per unique token.
+/// But if the token exceeds the threshold then the 1 ada token fee is removed
+/// and the fee is 2% of the token value is used as fee instead.
+pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
+  // 2% of the total ada value
+  let ada_fee =
+    ( value.lovelace_of(total_payout) * marketplace_pct + 50 ) / 1000
+
+  // Counts the unique tokens that didn't reach the threshold
+  let unique_tokens =
+    total_payout
+      |> value.without_lovelace()
+      |> value.flatten()
+      |> list.foldl(
+           0,
+           fn(asset, total) {
+             let (_, asset_name, amount) = asset
+             if asset_name != "" && amount < token_fee_threshold {
+               total + 1
+             } else if asset_name == "" {
+               total + amount
+             } else {
+               total + 0
+             }
+           },
+         )
+
+  // 2% ada fee + 1 ada per unique token
+  let ada_token_fee = ada_fee_per_nft * unique_tokens + ada_fee
+  let total_ada_fee = value.from_lovelace(ada_token_fee |> math.max(min_payout))
+
+  // 2% of the total token value for tokens that exceed the threshold
+  let total_token_fee =
+    total_payout
+      |> value.without_lovelace()
+      |> value.flatten()
+      |> list.foldl(
+           value.zero(),
+           fn(token, total) {
+             let (policy_id, asset_name, amount) = token
+             if amount >= token_fee_threshold {
+               let token_fee = ( amount * marketplace_pct + 50 ) / 1000
+               total |> value.add(policy_id, asset_name, token_fee)
+             } else {
+               total
+             }
+           },
+         )
+
+  // Merge the fees
+  total_ada_fee |> value.merge(total_token_fee)
+}
+
 /// This function is used only if a discount
 /// is not allowed (tx not signed by jpg). The main difference
 /// from `check_payouts` is that we make sure the
@@ -80,31 +268,21 @@ test skip_10_items_1() {
 /// to compare to.
 pub fn check_marketplace_payout(
   output: Output,
-  marketplace_fee: Int,
+  marketplace_fee: Value,
   datum_tag: Datum,
 ) -> Bool {
   let Output { address: output_address, value, datum, .. } = output
-
   let datum_check = datum == datum_tag
 
   // Match hardcoded marketplace address
   let address_check = output_address == marketplace_addr()
 
-  expect [(policy, tokens)] =
-    value
-      |> to_dict
-      |> dict.to_list
-
-  expect [(_, quantity)] = dict.to_list(tokens)
-
-  let policy_check = policy == ada_policy_id
-
   // Output value quantity must equal the marketplace fee
   // this prevents people from not paying a fee by submitting
   // transactions not constructed by Jpg.
-  let quantity_check = quantity >= marketplace_fee
+  let quantity_check = marketplace_fee |> does_output_cover_payout(value)
 
-  datum_check && address_check && quantity_check && policy_check
+  datum_check? && address_check? && quantity_check?
 }
 
 /// Test that `check_marketplace_payout` returns `True` when
@@ -129,7 +307,7 @@ test check_marketplace_payout_valid_input() {
       reference_script: None,
     }
 
-  check_marketplace_payout(output, 2000000, datum_tag)
+  check_marketplace_payout(output, value.from_lovelace(2000000), datum_tag)
 }
 
 /// This test makes sure that the marketplace payout
@@ -160,7 +338,7 @@ test check_marketplace_payout_invalid_address() {
       reference_script: None,
     }
 
-  !check_marketplace_payout(output, 2000000, datum_tag)
+  !check_marketplace_payout(output, value.from_lovelace(2000000), datum_tag)?
 }
 
 /// This test makes sure that the marketplace payout
@@ -186,7 +364,7 @@ test check_marketplace_payout_incorrect_amount() {
       reference_script: None,
     }
 
-  !check_marketplace_payout(output, 2000000, datum_tag)
+  !check_marketplace_payout(output, value.from_lovelace(2000000), datum_tag)
 }
 
 /// Check that payouts and payout outputs
@@ -199,84 +377,40 @@ pub fn check_payouts(
   outputs: List<Output>,
   payouts: List<Payout>,
   datum_tag: Datum,
-) -> Int {
+) -> Value {
   expect [first_output, ..rest_outputs] = outputs
 
   let Output { address: output_address, value, datum, .. } = first_output
 
   expect datum == datum_tag
+
   expect [payout, ..rest_payouts] = payouts
 
-  let Payout { address: payout_address, amount_lovelace } = payout
+  let Payout { address: payout_address, amount } = payout
 
   // The `Output` address must match
   // the address specified in the corresponding
   // payout from the datum.
   expect payout_address == output_address
-  expect [(policy, tokens)] =
-    value
-      |> to_dict
-      |> dict.to_list
 
-  expect [(_, quantity)] = dict.to_list(tokens)
+  let lovelace_amount = value |> value.lovelace_of()
+  let lovelace_payout_amount = amount |> value.lovelace_of()
+  let is_payout_covered = amount |> does_output_cover_payout(value)
 
-  expect policy == ada_policy_id
-  // The quantity in the output must equal
-  // the amount specified in the corresponding
-  // payout from the datum.
-  expect quantity >= amount_lovelace && amount_lovelace > 0
+  expect is_payout_covered && lovelace_amount > 0 && lovelace_payout_amount >= 0
+
   let rest_payouts_amount =
     when rest_payouts is {
       // the base case
       [] ->
         // if rest is empty we are done
-        0
+        value.zero()
       _ ->
         // continue with remaining outputs and payouts
-        check_payouts_aux(rest_outputs, rest_payouts)
+        check_payouts(rest_outputs, rest_payouts, NoDatum)
     }
 
-  amount_lovelace + rest_payouts_amount
-}
-
-pub fn check_payouts_aux(outputs: List<Output>, payouts: List<Payout>) -> Int {
-  expect [first_output, ..rest_outputs] = outputs
-
-  let Output { address: output_address, value, datum, .. } = first_output
-
-  expect datum == NoDatum
-  expect [payout, ..rest_payouts] = payouts
-
-  let Payout { address: payout_address, amount_lovelace } = payout
-
-  // The `Output` address must match
-  // the address specified in the corresponding
-  // payout from the datum.
-  expect payout_address == output_address
-  expect [(policy, tokens)] =
-    value
-      |> to_dict
-      |> dict.to_list
-
-  expect [(_, quantity)] = dict.to_list(tokens)
-
-  expect policy == ada_policy_id
-  // The quantity in the output must equal
-  // the amount specified in the corresponding
-  // payout from the datum.
-  expect quantity >= amount_lovelace && amount_lovelace > 0
-  let rest_payouts_amount =
-    when rest_payouts is {
-      // the base case
-      [] ->
-        // if rest is empty we are done
-        0
-      _ ->
-        // continue with remaining outputs and payouts
-        check_payouts_aux(rest_outputs, rest_payouts)
-    }
-
-  amount_lovelace + rest_payouts_amount
+  amount |> value.merge(rest_payouts_amount)
 }
 
 /// This test makes sure the `check_payouts` returns true
@@ -309,8 +443,14 @@ test check_payouts_with_trailing_outputs() {
 
   let test_royalty_payouts =
     [
-      Payout { address: test_royalty_addr, amount_lovelace: 3000000 },
-      Payout { address: test_seller_addr, amount_lovelace: 95000000 },
+      Payout {
+        address: test_royalty_addr,
+        amount: value.from_lovelace(3000000),
+      },
+      Payout {
+        address: test_seller_addr,
+        amount: value.from_lovelace(95000000),
+      },
     ]
 
   let datum_tag =
@@ -348,7 +488,8 @@ test check_payouts_with_trailing_outputs() {
 
   let outputs = list.concat([out_1, out_2], list.repeat(out_random, 100))
 
-  98000000 == check_payouts(outputs, test_royalty_payouts, datum_tag)
+  check_payouts(outputs, test_royalty_payouts, datum_tag)
+    |> does_output_cover_payout(value.from_lovelace(98000000))
 }
 
 /// This test makes sure that `check_payouts` returns `False` when
@@ -381,8 +522,14 @@ test check_payouts_with_mixed_outputs() fail {
 
   let test_royalty_payouts =
     [
-      Payout { address: test_royalty_addr, amount_lovelace: 3000000 },
-      Payout { address: test_seller_addr, amount_lovelace: 95000000 },
+      Payout {
+        address: test_royalty_addr,
+        amount: value.from_lovelace(3000000),
+      },
+      Payout {
+        address: test_seller_addr,
+        amount: value.from_lovelace(95000000),
+      },
     ]
 
   let datum_tag =
@@ -418,11 +565,8 @@ test check_payouts_with_mixed_outputs() fail {
       reference_script: None,
     }
 
-  98000000 == check_payouts(
-    [out_1, out_random, out_2],
-    test_royalty_payouts,
-    datum_tag,
-  )
+  check_payouts([out_1, out_random, out_2], test_royalty_payouts, datum_tag)
+    |> does_output_cover_payout(value.from_lovelace(98000000))
 }
 
 /// This test checks that the check_payouts function works correctly when
@@ -456,8 +600,14 @@ test check_payouts_with_leading_outputs() fail {
 
   let test_royalty_payouts =
     [
-      Payout { address: test_royalty_addr, amount_lovelace: 3000000 },
-      Payout { address: test_seller_addr, amount_lovelace: 95000000 },
+      Payout {
+        address: test_royalty_addr,
+        amount: value.from_lovelace(3000000),
+      },
+      Payout {
+        address: test_seller_addr,
+        amount: value.from_lovelace(95000000),
+      },
     ]
 
   let datum_tag =
@@ -495,7 +645,8 @@ test check_payouts_with_leading_outputs() fail {
 
   let outputs = list.concat(list.repeat(out_random, 100), [out_1, out_2])
 
-  98000000 == check_payouts(outputs, test_royalty_payouts, datum_tag)
+  check_payouts(outputs, test_royalty_payouts, datum_tag)
+    |> does_output_cover_payout(value.from_lovelace(98000000))
 }
 
 /// If the payout output value does not match the datum payout amount
@@ -527,8 +678,14 @@ test check_payouts_with_wrong_amounts() fail {
 
   let test_royalty_payouts =
     [
-      Payout { address: test_royalty_addr, amount_lovelace: 3000000 },
-      Payout { address: test_seller_addr, amount_lovelace: 95000000 },
+      Payout {
+        address: test_royalty_addr,
+        amount: value.from_lovelace(3000000),
+      },
+      Payout {
+        address: test_seller_addr,
+        amount: value.from_lovelace(95000000),
+      },
     ]
 
   let datum_tag =
@@ -566,7 +723,8 @@ test check_payouts_with_wrong_amounts() fail {
 
   let outputs = list.concat([out_1, out_2], list.repeat(out_random, 100))
 
-  98000000 == check_payouts(outputs, test_royalty_payouts, datum_tag)
+  check_payouts(outputs, test_royalty_payouts, datum_tag)
+    |> does_output_cover_payout(value.from_lovelace(98000000))
 }
 
 /// If the payout output address does not match the datum payout address 
@@ -598,8 +756,14 @@ test check_payouts_with_wrong_address() fail {
 
   let test_royalty_payouts =
     [
-      Payout { address: test_royalty_addr, amount_lovelace: 3000000 },
-      Payout { address: test_seller_addr, amount_lovelace: 95000000 },
+      Payout {
+        address: test_royalty_addr,
+        amount: value.from_lovelace(3000000),
+      },
+      Payout {
+        address: test_seller_addr,
+        amount: value.from_lovelace(95000000),
+      },
     ]
 
   let datum_tag =
@@ -642,7 +806,8 @@ test check_payouts_with_wrong_address() fail {
 
   let outputs = list.concat([out_1, out_2], list.repeat(out_random, 100))
 
-  98000000 == check_payouts(outputs, test_royalty_payouts, datum_tag)
+  check_payouts(outputs, test_royalty_payouts, datum_tag)
+    |> does_output_cover_payout(value.from_lovelace(98000000))
 }
 
 /// Test that things work with a single payout
@@ -664,7 +829,12 @@ test check_payouts_with_single_payout() {
     }
 
   let test_royalty_payouts =
-    [Payout { address: test_royalty_addr, amount_lovelace: 3000000 }]
+    [
+      Payout {
+        address: test_royalty_addr,
+        amount: value.from_lovelace(3000000),
+      },
+    ]
 
   let datum_tag =
     OutputReference {
@@ -693,5 +863,6 @@ test check_payouts_with_single_payout() {
 
   let outputs = list.concat([out_1], list.repeat(out_random, 100))
 
-  3000000 == check_payouts(outputs, test_royalty_payouts, datum_tag)
+  check_payouts(outputs, test_royalty_payouts, datum_tag)
+    |> does_output_cover_payout(value.from_lovelace(3000000))
 }

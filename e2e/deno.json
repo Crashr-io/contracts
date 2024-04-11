@@ -1,5 +1,11 @@
 {
   "tasks": {
-    "e2e": "deno run --allow-all main.ts"
+    "e2e": "deno run --allow-all main.ts",
+    "generate-credential": "deno run --allow-write --allow-read --allow-net ./scripts/generate-credential.ts",
+    "create-trade-offer": "deno run --allow-write --allow-read --allow-net --allow-env ./scripts/create-trade-offer.ts",
+    "accept-trade-offer": "deno run --allow-write --allow-read --allow-net --allow-env ./scripts/accept-trade-offer.ts",
+    "cancel-trade-offer": "deno run --allow-write --allow-read --allow-net --allow-env ./scripts/cancel-trade-offer.ts",
+    "create-ref-script": "deno run --allow-write --allow-read --allow-net --allow-env ./scripts/create-ref-script.ts",
+    "simulate-trade": "deno run --allow-all ./scripts/simulate-trade.ts"
   }
 }
