@@ -9,7 +9,7 @@ const txRef = await lucid
     validator_address,
     { scriptRef: validator },
     {
-      lovelace: 100000000n,
+      lovelace: 50000000n,
     },
   )
   .complete();

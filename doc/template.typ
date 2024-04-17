@@ -3,6 +3,7 @@
 
 #let jpg_store = [JPG Store#super[1]]
 #let tx_pipe = [TxPipe#super[2]]
+#let sundae_labs = [Sundae Labs#super[3]]
 
 #let core_features = (
 [*Trade ADA for NFT:* Enables direct exchange of ADA for NFT assets.],
@@ -616,19 +617,33 @@ There are instances where a user might be interested in acquiring any asset from
 
   #note("With multi-asset trades, the calculation of royalty fees is significantly influenced by the specific assets involved. When trades include assets from various projects, it's possible to list each project's royalty address in the payouts, as long as the assigned ADA value adheres to the minimum threshold of 1 ADA.")
 
-  == Treasury
+  == Revenue Sharing
 
-  The treasury wallet is responsible for collecting the marketplace fees. It is a multi-sig wallet being managed by the Crashr team and can expand to include other stakeholders in the future. This wallet holds the fees collected from successful trades on the marketplace, rewards from ADA staking, and other sources of revenue. The treasury wallet is a critical component of the Crashr ecosystem, ensuring the sustainability and growth of the platform.
+  To incentivize user engagement and trading activity, our platform implements a streamlined revenue-sharing model, distributing generated income across three fundamental components of the protocol. The treasury, staking, and buyback.
 
-  _TODO:_ Fee breakdown, treasury address?, 
+  === Treasury
+
+  The treasury supports the platform's development, maintenance, and expansion. It's also staked to the Crashr Stake Pool to aid in decentralization and enhance the network. To maintain heightened security and trust, the treasury's funds are secured in a multi-signature wallet.
+
+  *Allocation:* 60% of all collected fees.
+
+  === Staking
+
+  Staking rewards play a crucial role in promoting long-term engagement and stability within the ecosystem. Rewards are determined based on the amount and duration of \$CRASH tokens staked, with the total fees allocated for staking distributed to participants in the currency of ADA (Cardano).
+
+  *Allocation:* 20% of all collected fees.
+
+  === Buyback
+
+  Aimed at stabilizing and boosting the \$CRASH token's value, the buyback is conducted quarterly, it uses a set portion of the fees to repurchase \$CRASH tokens. These tokens are then reintegrated into the treasury, earmarked for release via DAO approval or as part of community reward incentives.
+
+  *Allocation:* 20% of all collected fees plus all ADA generated from staking rewards.
 
   == Security
 
   Security is a critical aspect of any decentralized marketplace, and the Crashr protocol upholds the rigorous security standards set by the #jpg_store v3 contract. This commitment ensures the safeguarding of assets and the precise execution of transactions.
 
-  With the adaptation of the contract to facilitate multi-asset trades, additional security measures have been implemented. These modifications are currently undergoing thorough audits by security experts to verify that the protocol's integrity and security remain uncompromised. At this point, the auditing process is still ongoing.
-
-  \ \ \
+  With the adaptation of the contract to facilitate multi-asset trades, additional security measures have been implemented. These modifications are currently undergoing thorough audits by security experts to verify that the protocol's integrity and security remain uncompromised. As of the writing of this paper, the contract is still being audited by #sundae_labs.
 ]
 
 #let wp_crashr_transactions = [
@@ -796,11 +811,13 @@ The Crashr UI is the user-facing component of the marketplace, designed to provi
 #let wp_acknowledgements = [
   = Acknowledgements
 
-  While we take great pride in the development of this protocol, it's important to acknowledge that our progress was significantly enhanced by the contributions from the Cardano open-source community. We extend our gratitude to the following projects for their invaluable support:
+  While we take great pride in the development of this protocol, it's important to acknowledge that our progress was significantly enhanced by the contributions from the Cardano open-source community. We extend our gratitude to the following projects for their invaluable contribution:
 
   - #link("https://github.com/jpg-store/contracts-v3")[*JPG Store*]: For the foundational contract that Crashr is built upon.
 
   - #link("https://txpipe.io/")[*TxPipe*]: For providing open-source tools that make Cardano development so much more developer-friendly. 
   
   - #link("https://github.com/CardanoSharp")[*CardanoSharp*] & #link("https://github.com/Orion-Crypto/cardanosharp-wallet")[*Orion*]: For their open-source Cardano Cryptographic and Serialization library for .NET applications.
+
+  - #link("https://sundae.fi/")[*Sundae Labs*]: For the smart contract audit.
 ]
