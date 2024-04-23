@@ -635,7 +635,7 @@ There are instances where a user might be interested in acquiring any asset from
 
   === Buyback
 
-  Aimed at stabilizing and boosting the \$CRASH token's value, the buyback is conducted quarterly, it uses a set portion of the fees to repurchase \$CRASH tokens. These tokens are then reintegrated into the treasury, earmarked for release via DAO approval or as part of community reward incentives.
+  Aimed at stabilizing and boosting the \$CRASH token's value, the buyback is conducted quarterly, it uses a set portion of the fees to repurchase \$CRASH tokens. These tokens are then reintegrated into the treasury, earmarked for release via DAO approval or towards the protocol rewards.
 
   *Allocation:* 20% of all collected fees plus all ADA generated from staking rewards.
 
@@ -643,7 +643,7 @@ There are instances where a user might be interested in acquiring any asset from
 
   Security is a critical aspect of any decentralized marketplace, and the Crashr protocol upholds the rigorous security standards set by the #jpg_store v3 contract. This commitment ensures the safeguarding of assets and the precise execution of transactions.
 
-  With the adaptation of the contract to facilitate multi-asset trades, additional security measures have been implemented. These modifications are currently undergoing thorough audits by security experts to verify that the protocol's integrity and security remain uncompromised. As of the writing of this paper, the contract is still being audited by #sundae_labs.
+  With the adaptation of the contract to facilitate multi-asset trades, additional security measures have been implemented. These modifications are currently undergoing thorough audits by security experts to verify that the protocol's integrity and security remain uncompromised. The Crashr marketplace contract will be audited by #sundae_labs.
 ]
 
 #let wp_crashr_transactions = [
@@ -757,7 +757,6 @@ Crashr Sync is composed of several indexers called *reducers*, each designed to 
 
 - *TokenPrice Reducer:* Sources fungible token prices from DEX liquidity pools to facilitate accurate ADA value calculations for tokens at any given moment, essential for multi-asset trades within the marketplace.
 
-
 == Crashr API
 
 Crashr API is a component designed to expose blockchain data in a more digestible format. This API layer serves as the bridge between the complex data indexed by Crashr Sync and the user-facing elements of the marketplace, ensuring that information is accessible, understandable, and actionable. Furthermore, the Crashr API opens avenues for businesses looking to leverage our platform's rich data ecosystem, offering them the tools to build innovative applications on top of this data.
@@ -811,13 +810,15 @@ The Crashr UI is the user-facing component of the marketplace, designed to provi
 #let wp_acknowledgements = [
   = Acknowledgements
 
-  While we take great pride in the development of this protocol, it's important to acknowledge that our progress was significantly enhanced by the contributions from the Cardano open-source community. We extend our gratitude to the following projects for their invaluable contribution:
+  Although we take great pride in the development of this protocol, it's important to acknowledge that our progress was significantly enhanced by the contributions from the Cardano open-source community. We extend our gratitude to the following projects for their invaluable contribution:
 
   - #link("https://github.com/jpg-store/contracts-v3")[*JPG Store*]: For the foundational contract that Crashr is built upon.
 
-  - #link("https://txpipe.io/")[*TxPipe*]: For providing open-source tools that make Cardano development so much more developer-friendly. 
+  - #link("https://txpipe.io/")[*TxPipe*]: For providing open-source tools that make building on Cardano easier. 
   
   - #link("https://github.com/CardanoSharp")[*CardanoSharp*] & #link("https://github.com/Orion-Crypto/cardanosharp-wallet")[*Orion*]: For their open-source Cardano Cryptographic and Serialization library for .NET applications.
 
   - #link("https://sundae.fi/")[*Sundae Labs*]: For the smart contract audit.
+
+  - and many more.
 ]
