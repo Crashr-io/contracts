@@ -629,9 +629,9 @@ There are instances where a user might be interested in acquiring any asset from
 
   === Staking
 
-  Staking rewards play a crucial role in promoting long-term engagement and stability within the ecosystem. Rewards are determined based on the amount and duration of \$CRASH tokens staked, with the total fees allocated for staking distributed to participants in the currency of ADA (Cardano).
+  Staking rewards play a crucial role in promoting long-term engagement and stability within the ecosystem. Rewards are determined based on the amount and duration of \$CRASH tokens staked, with the total fees allocated for staking distributed to participants in \$CRASH tokens.
 
-  *Allocation:* 20% of all collected fees.
+  *Allocation:* 20% of all collected fees converted to \$CRASH tokens.
 
   === Buyback
 
