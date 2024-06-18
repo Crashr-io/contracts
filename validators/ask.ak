@@ -25,7 +25,7 @@ type Datum {
   payouts: List<Payout>,
   /// Flexible to allow discounts
   /// The key that listed the NFT
-  owner: VerificationKeyHash,
+  owner: PaymentCredential,
 }
 
 /// A user can either buy a token
@@ -44,8 +44,9 @@ validator {
   fn spend(datum: Datum, redeemer: Redeemer, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx
 
-    let Transaction { outputs, extra_signatories, .. } = transaction
+    let Transaction { outputs, inputs ,  .. } = transaction
 
+    
     // Match on the action.
     when redeemer is {
       Buy { payout_outputs_offset } -> {
@@ -81,8 +82,8 @@ validator {
       // at any time.
       WithdrawOrUpdate ->
         // is signed by owner
-        list.has(extra_signatories, datum.owner)
-    }
+        list.any(inputs, fn(input) { input.output.address.payment_credential == datum.owner })
+      }
   }
 }
 
