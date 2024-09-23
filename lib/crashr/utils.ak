@@ -130,7 +130,7 @@ test check_does_output_not_cover_payout_for_non_specific_assets() fail {
   does_output_cover_payout(value1, value2)
 }
 
-test check_does_output_cover_payout_for_exact_and_wildcard_with_same_policy() fail {
+test check_does_output_cover_payout_for_exact_and_wildcard_with_same_policy_fail() fail {
   let value1 =
     value.from_lovelace(1000)
       |> value.merge(value.from_asset("113", "1", 1))
@@ -140,6 +140,20 @@ test check_does_output_cover_payout_for_exact_and_wildcard_with_same_policy() fa
       |> value.merge(value.from_asset("113", "1", 1))
       |> value.merge(value.from_asset("113", "2", 1))
       |> value.merge(value.from_asset("113", "3", 1))
+  does_output_cover_payout(value1, value2)
+}
+
+test check_does_output_cover_payout_for_exact_and_wildcard_with_same_policy_success() {
+  let value1 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("113", "1", 1))
+      |> value.merge(value.from_asset("113", "", 3))
+  let value2 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("113", "1", 1))
+      |> value.merge(value.from_asset("113", "2", 1))
+      |> value.merge(value.from_asset("113", "3", 1))
+      |> value.merge(value.from_asset("113", "4", 1))
   does_output_cover_payout(value1, value2)
 }
 
