@@ -23,37 +23,45 @@ pub fn does_output_cover_payout(payout_value: Value, output_value: Value) {
   // Compare values
   payout_dict
     |> dict.foldl(
-         True,
-         fn(policy_id, payout_assets, res) {
-           // Compare each asset under this policy_id
-           expect Some(output_assets) = output_dict |> dict.get(policy_id)
+        True,
+        fn(policy_id, payout_assets, policies_satisfied) {
+          // Compare each asset under this policy_id
+          expect Some(output_assets) = output_dict |> dict.get(policy_id)
 
-           payout_assets
-             |> dict.foldl(
-                  True,
-                  fn(asset_name, payout_amount, _) {
-                    when output_assets |> dict.get(asset_name) is {
-                      // If the asset is found in the output, check if the amount is enough
-                      Some(output_amount) ->
-                        res && output_amount >= payout_amount
-                      // Otherwise check if there are additional assets that can cover
-                      // the payout amount if asset is not ada
-                      None ->
-                        if asset_name != "" || policy_id == ada_policy_id {
-                          res && False
-                        } else {
-                          // count all additional assets                            
-                          res && is_additional_assets_covered(
-                            payout_assets,
-                            output_assets,
-                            payout_amount,
-                          )
-                        }
-                    }
-                  },
-                )
-         },
-       )
+          policies_satisfied && dict.foldl(
+            payout_assets,
+            True,
+            fn(asset_name, payout_amount, assets_satisfied) {
+              when output_assets |> dict.get(asset_name) is {
+                // If the asset is found in the output, check if the amount is enough
+                Some(output_amount) ->
+                  assets_satisfied && output_amount >= payout_amount
+                // Otherwise check if there are additional assets that can cover
+                // the payout amount if asset is not ada
+                None ->
+                  if asset_name != "" || policy_id == ada_policy_id {
+                    assets_satisfied && False
+                  } else {
+                    // count all additional assets                            
+                    assets_satisfied && is_additional_assets_covered(
+                      payout_assets,
+                      output_assets,
+                      payout_amount,
+                    )
+                  }
+              }
+            },
+          )
+        },
+      )
+}
+
+test check_accumulator_respected() fail {
+  let payout_value =
+    value.from_asset_list([Pair(#"0a", [Pair(#"0a", 123), Pair(#"0b", 456)])])
+  let output_value =
+    value.from_asset_list([Pair(#"0a", [Pair(#"0a", 1), Pair(#"0b", 666)])])
+  does_output_cover_payout(payout_value, output_value)
 }
 
 /// Helper function for checking if additional assets
@@ -73,13 +81,13 @@ pub fn is_additional_assets_covered(
     output_assets
       |> dict.keys()
       |> list.count(
-           fn(asset_name) {
-             let included =
-               requested_assets
-                 |> list.has(asset_name)
-             !included
-           },
-         )
+          fn(asset_name) {
+            let included =
+              requested_assets
+                |> list.has(asset_name)
+            !included
+          },
+        )
   additional_tokens >= amount_to_cover
 }
 
@@ -119,6 +127,19 @@ test check_does_output_not_cover_payout_for_non_specific_assets() fail {
       |> value.merge(value.from_asset("111", "6", 1))
       |> value.merge(value.from_asset("111", "7", 1))
       |> value.merge(value.from_asset("111", "8", 1))
+  does_output_cover_payout(value1, value2)
+}
+
+test check_does_output_cover_payout_for_exact_and_wildcard_with_same_policy() fail {
+  let value1 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("113", "1", 1))
+      |> value.merge(value.from_asset("113", "", 3))
+  let value2 =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("113", "1", 1))
+      |> value.merge(value.from_asset("113", "2", 1))
+      |> value.merge(value.from_asset("113", "3", 1))
   does_output_cover_payout(value1, value2)
 }
 
@@ -220,18 +241,18 @@ pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
       |> value.without_lovelace()
       |> value.flatten()
       |> list.foldl(
-           0,
-           fn(asset, total) {
-             let (_, asset_name, amount) = asset
-             if asset_name != "" && amount < token_fee_threshold {
-               total + 1
-             } else if asset_name == "" {
-               total + amount
-             } else {
-               total + 0
-             }
-           },
-         )
+          0,
+          fn(asset, total) {
+            let (_, asset_name, amount) = asset
+            if asset_name != "" && amount < token_fee_threshold {
+              total + 1
+            } else if asset_name == "" {
+              total + amount
+            } else {
+              total + 0
+            }
+          },
+        )
 
   // 2% ada fee + 1 ada per unique token
   let ada_token_fee = ada_fee_per_nft * unique_tokens + ada_fee
@@ -243,17 +264,17 @@ pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
       |> value.without_lovelace()
       |> value.flatten()
       |> list.foldl(
-           value.zero(),
-           fn(token, total) {
-             let (policy_id, asset_name, amount) = token
-             if amount >= token_fee_threshold {
-               let token_fee = ( amount * marketplace_pct + 50 ) / 1000
-               total |> value.add(policy_id, asset_name, token_fee)
-             } else {
-               total
-             }
-           },
-         )
+          value.zero(),
+          fn(token, total) {
+            let (policy_id, asset_name, amount) = token
+            if amount >= token_fee_threshold {
+              let token_fee = ( amount * marketplace_pct + 50 ) / 1000
+              total |> value.add(policy_id, asset_name, token_fee)
+            } else {
+              total
+            }
+          },
+        )
 
   // Merge the fees
   total_ada_fee |> value.merge(total_token_fee)
