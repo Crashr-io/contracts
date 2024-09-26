@@ -35,7 +35,7 @@ pub fn does_output_cover_payout(payout_value: Value, output_value: Value) {
               when output_assets |> dict.get(asset_name) is {
                 // If the asset is found in the output, check if the amount is enough
                 Some(output_amount) ->
-                  assets_satisfied && output_amount >= payout_amount
+                  assets_satisfied? && (output_amount >= payout_amount)?
                 // Otherwise check if there are additional assets that can cover
                 // the payout amount if asset is not ada
                 None ->
@@ -43,11 +43,11 @@ pub fn does_output_cover_payout(payout_value: Value, output_value: Value) {
                     assets_satisfied && False
                   } else {
                     // count all additional assets                            
-                    assets_satisfied && is_additional_assets_covered(
+                    assets_satisfied? && is_additional_assets_covered(
                       payout_assets,
                       output_assets,
                       payout_amount,
-                    )
+                    )?
                   }
               }
             },
@@ -88,6 +88,7 @@ pub fn is_additional_assets_covered(
             !included
           },
         )
+
   additional_tokens >= amount_to_cover
 }
 
@@ -247,7 +248,7 @@ test skip_10_items_1() {
 pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
   // 2% of the total ada value
   let ada_fee =
-    ( value.lovelace_of(total_payout) * marketplace_pct + 50 ) / 1000
+    ( value.lovelace_of(total_payout) * marketplace_pct + 500 ) / 1000
 
   // Counts the unique tokens that didn't reach the threshold
   let unique_tokens =
@@ -282,7 +283,7 @@ pub fn calculate_marketplace_payout(total_payout: Value) -> Value {
           fn(token, total) {
             let (policy_id, asset_name, amount) = token
             if amount >= token_fee_threshold {
-              let token_fee = ( amount * marketplace_pct + 50 ) / 1000
+              let token_fee = ( amount * marketplace_pct + 500 ) / 1000
               total |> value.add(policy_id, asset_name, token_fee)
             } else {
               total
@@ -428,11 +429,10 @@ pub fn check_payouts(
   // payout from the datum.
   expect payout_address == output_address
 
-  let lovelace_amount = value |> value.lovelace_of()
   let lovelace_payout_amount = amount |> value.lovelace_of()
   let is_payout_covered = amount |> does_output_cover_payout(value)
 
-  expect is_payout_covered && lovelace_amount > 0 && lovelace_payout_amount >= 0
+  expect is_payout_covered && lovelace_payout_amount >= 0
 
   let rest_payouts_amount =
     when rest_payouts is {
