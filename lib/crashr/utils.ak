@@ -84,6 +84,19 @@ pub fn is_additional_assets_covered(
   additional_tokens >= amount_to_cover
 }
 
+test check_accumulator_respected() fail {
+  let payout_value =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("0a", "0a", 123))
+      |> value.merge(value.from_asset("0a", "0b", 456))
+  let output_value =
+    value.from_lovelace(1000)
+      |> value.merge(value.from_asset("0a", "0a", 1))
+      |> value.merge(value.from_asset("0a", "0b", 666))
+
+  does_output_cover_payout(payout_value, output_value)
+}
+
 test check_does_output_cover_payout() {
   let value1 =
     value.from_lovelace(100) |> value.merge(value.from_asset("111", "1", 100))
