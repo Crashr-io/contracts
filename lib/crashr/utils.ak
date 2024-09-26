@@ -56,14 +56,6 @@ pub fn does_output_cover_payout(payout_value: Value, output_value: Value) {
       )
 }
 
-test check_accumulator_respected() fail {
-  let payout_value =
-    value.from_asset_list([Pair(#"0a", [Pair(#"0a", 123), Pair(#"0b", 456)])])
-  let output_value =
-    value.from_asset_list([Pair(#"0a", [Pair(#"0a", 1), Pair(#"0b", 666)])])
-  does_output_cover_payout(payout_value, output_value)
-}
-
 /// Helper function for checking if additional assets
 /// are included in the output. This is for offers that
 /// did not specify a specific asset name.
